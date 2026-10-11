@@ -1,0 +1,190 @@
+/* public/assets/css/style.css */
+:root {
+    --primary-color: #0056b3;
+    --text-color: #333;
+    --bg-color: #f9f9f9;
+}
+
+body {
+    font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    margin: 0;
+    padding: 0;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.header {
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 15px 0;
+}
+
+.header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.header h1 a {
+    text-decoration: none;
+    color: var(--primary-color);
+}
+
+.header nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 20px;
+}
+
+.header nav a {
+    text-decoration: none;
+    color: var(--text-color);
+    font-weight: bold;
+}
+
+.main-content {
+    padding: 40px 0;
+    min-height: calc(100vh - 160px);
+}
+
+.hero {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.search-box {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.search-box input {
+    padding: 10px;
+    width: 300px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.search-box button {
+    padding: 10px 20px;
+    background-color: var(--primary-color);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.area-selection {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.footer {
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 20px 0;
+}
+
+/* Area Detail Styles */
+.breadcrumb { margin-bottom: 20px; font-size: 0.9rem; color: #666; }
+.breadcrumb a { color: var(--primary-color); text-decoration: none; }
+.tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+.tab-btn { padding: 10px 20px; border: none; background: #eee; cursor: pointer; border-radius: 4px; font-weight: bold; }
+.tab-btn:hover { background: #e0e0e0; }
+.tab-btn.active { background: var(--primary-color); color: #fff; }
+.summary-section { display: flex; gap: 20px; flex-wrap: wrap; }
+.summary-card { flex: 1; min-width: 200px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; border: 1px solid #eaeaea; }
+.summary-card h4 { margin-top: 0; color: #666; font-size: 1rem; }
+.summary-card .price { font-size: 1.8rem; font-weight: bold; color: var(--primary-color); margin: 0; }
+
+/* Phase 6: Responsive & UX Adjustments */
+
+/* Flex containers responsive */
+@media (max-width: 768px) {
+    .header .container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .header nav ul {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .summary-section,
+    .filter-section > div,
+    div[style*="display: flex; gap: 20px;"] {
+        flex-direction: column !important;
+    }
+    
+    .chart-section {
+        min-width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+    
+    .search-box {
+        flex-direction: column;
+    }
+    
+    .search-box input {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .compare-controls > div:first-child {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    
+    .compare-controls input {
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+    
+    .compare-controls #shareBtn {
+        margin-left: 0 !important;
+        margin-top: 10px;
+    }
+}
+
+/* Loading Spinner CSS */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0,86,179,0.3);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.error-message {
+    color: #dc3545;
+    background: #f8d7da;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #f5c6cb;
+    margin: 10px 0;
+}

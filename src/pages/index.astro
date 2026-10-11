@@ -1,0 +1,161 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getDb } from '../lib/db.js';
+
+const db = getDb();
+const [rows] = await db.query(`
+    SELECT Prefecture, MunicipalityCode, Municipality, DistrictName 
+    FROM transactions 
+    WHERE DistrictName IS NOT NULL AND DistrictName != '-'
+`);
+
+// データを整形 (重複排除など)
+const prefecturesMap = new Map();
+const citiesMap = new Map();
+const districtsObj = {};
+
+rows.forEach(row => {
+    // Prefecture
+    if (!prefecturesMap.has(row.Prefecture)) {
+        prefecturesMap.set(row.Prefecture, { id: row.Prefecture, name: row.Prefecture });
+    }
+    
+    // City
+    if (!citiesMap.has(row.MunicipalityCode)) {
+        citiesMap.set(row.MunicipalityCode, {
+            id: row.MunicipalityCode,
+            name: row.Municipality,
+            prefId: row.Prefecture,
+            prefName: row.Prefecture
+        });
+    }
+
+    // District
+    if (!districtsObj[row.MunicipalityCode]) {
+        districtsObj[row.MunicipalityCode] = new Set();
+    }
+    districtsObj[row.MunicipalityCode].add(row.DistrictName);
+});
+
+const prefectures = Array.from(prefecturesMap.values());
+const cities = Array.from(citiesMap.values());
+const districts = {};
+for (const [cityId, districtSet] of Object.entries(districtsObj)) {
+    districts[cityId] = Array.from(districtSet).map(d => ({ name: d }));
+}
+---
+
+<Layout title="RealEstate Analytics">
+    <div class="container">
+        <section class="hero" style="text-align: center; padding: 40px 0;">
+            <h2>不動産価格の相場を調べる</h2>
+            <p>国土交通省のデータを元にしたエリア別の価格相場と推移をチェック</p>
+        </section>
+
+        <section class="search-section" style="max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <h3>エリアから探す</h3>
+            <div id="drilldown-container">
+                <!-- Reactivity handled by vanilla JS below -->
+                <div id="step-pref">
+                    <h4>都道府県を選択</h4>
+                    <ul class="pref-list" style="display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0;">
+                        {prefectures.map((pref: any) => (
+                            <li>
+                                <button class="btn pref-btn" data-id={pref.id} data-name={pref.name} style="padding: 8px 12px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">
+                                    {pref.name}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+                
+                <div id="step-city" style="display: none; margin-top: 20px;">
+                    <h4><span id="label-pref"></span> の市区町村を選択</h4>
+                    <button id="back-to-pref" class="btn" style="margin-bottom: 10px; font-size: 0.9em; background: transparent; border: 1px solid #ccc;">&laquo; 戻る</button>
+                    <ul id="city-list" style="display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0;"></ul>
+                </div>
+
+                <div id="step-district" style="display: none; margin-top: 20px;">
+                    <h4><span id="label-city"></span> の地区を選択</h4>
+                    <button id="back-to-city" class="btn" style="margin-bottom: 10px; font-size: 0.9em; background: transparent; border: 1px solid #ccc;">&laquo; 戻る</button>
+                    <div style="margin-bottom: 15px;">
+                        <a id="btn-city-all" href="#" class="btn" style="display: inline-block; padding: 8px 15px; background: var(--primary-color); color: #fff; border-radius: 4px; text-decoration: none;">
+                            市区町村全体のデータを見る
+                        </a>
+                    </div>
+                    <ul id="district-list" style="display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0;"></ul>
+                </div>
+            </div>
+        </section>
+    </div>
+</Layout>
+
+<script is:inline define:vars={{ prefectures, cities, districts }}>
+    // Client-side script for drill-down UI
+    const stepPref = document.getElementById('step-pref');
+    const stepCity = document.getElementById('step-city');
+    const stepDistrict = document.getElementById('step-district');
+    
+    const cityList = document.getElementById('city-list');
+    const districtList = document.getElementById('district-list');
+    
+    const labelPref = document.getElementById('label-pref');
+    const labelCity = document.getElementById('label-city');
+    const btnCityAll = document.getElementById('btn-city-all');
+    
+    let currentPref = null;
+    let currentCity = null;
+
+    // Pref -> City
+    document.querySelectorAll('.pref-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            currentPref = {
+                id: e.target.getAttribute('data-id'),
+                name: e.target.getAttribute('data-name')
+            };
+            labelPref.textContent = currentPref.name;
+            
+            const prefCities = cities.filter(c => c.prefId === currentPref.id);
+            cityList.innerHTML = prefCities.map(c => 
+                `<li><button class="btn city-btn" data-id="${c.id}" data-name="${c.name}" style="padding: 8px 12px; background: #e3f2fd; border: none; border-radius: 4px; cursor: pointer;">${c.name}</button></li>`
+            ).join('');
+            
+            stepPref.style.display = 'none';
+            stepCity.style.display = 'block';
+            
+            // Attach event to new city buttons
+            document.querySelectorAll('.city-btn').forEach(cBtn => {
+                cBtn.addEventListener('click', (ce) => {
+                    currentCity = {
+                        id: ce.target.getAttribute('data-id'),
+                        name: ce.target.getAttribute('data-name')
+                    };
+                    labelCity.textContent = currentCity.name;
+                    btnCityAll.href = `/area/${currentPref.name}/${currentCity.name}`;
+                    
+                    const cityDistricts = districts[currentCity.id] || [];
+                    if (cityDistricts.length === 0) {
+                        districtList.innerHTML = '<li>地区データがありません。</li>';
+                    } else {
+                        districtList.innerHTML = cityDistricts.map(d => 
+                            `<li><a href="/area/${currentPref.name}/${currentCity.name}/${d.name}" style="display:block; padding:8px 12px; background:#e8f5e9; border-radius:4px; text-decoration:none; color:#2e7d32;">${d.name}</a></li>`
+                        ).join('');
+                    }
+                    
+                    stepCity.style.display = 'none';
+                    stepDistrict.style.display = 'block';
+                });
+            });
+        });
+    });
+
+    document.getElementById('back-to-pref').addEventListener('click', () => {
+        stepCity.style.display = 'none';
+        stepPref.style.display = 'block';
+    });
+
+    document.getElementById('back-to-city').addEventListener('click', () => {
+        stepDistrict.style.display = 'none';
+        stepCity.style.display = 'block';
+    });
+</script>

@@ -1,0 +1,72 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="国土交通省の不動産取引データを活用し、全国のエリアごとの不動産価格相場・推移・比較分析ができるサイトです。"><title>RealEstate Analytics</title><link rel="stylesheet" href="/assets/css/style.css"><script type="module" src="/_astro/Layout.astro_astro_type_script_index_0_lang.DXMwYgxc.js"></script></head><body><header class="header"><div class="container" style="display: flex; justify-content: space-between; align-items: center;"><div class="logo"><h1><a href="/">RealEstate Analytics</a></h1></div><nav><ul><li><a href="/">トップ</a></li><li><a href="/compare">比較</a></li></ul></nav></div></header><main class="main-content"><div class="container"><section class="hero" style="text-align: center; padding: 40px 0;"><h2>不動産価格の相場を調べる</h2><p>国土交通省のデータを元にしたエリア別の価格相場と推移をチェック</p></section><section class="search-section" style="max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><h3>エリアから探す</h3><div id="drilldown-container"><!-- Reactivity handled by vanilla JS below --><div id="step-pref"><h4>都道府県を選択</h4><ul class="pref-list" style="display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0;"><li><button class="btn pref-btn" data-id="東京都" data-name="東京都" style="padding: 8px 12px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">東京都</button></li></ul></div><div id="step-city" style="display: none; margin-top: 20px;"><h4><span id="label-pref"></span> の市区町村を選択</h4><button id="back-to-pref" class="btn" style="margin-bottom: 10px; font-size: 0.9em; background: transparent; border: 1px solid #ccc;">&laquo; 戻る</button><ul id="city-list" style="display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0;"></ul></div><div id="step-district" style="display: none; margin-top: 20px;"><h4><span id="label-city"></span> の地区を選択</h4><button id="back-to-city" class="btn" style="margin-bottom: 10px; font-size: 0.9em; background: transparent; border: 1px solid #ccc;">&laquo; 戻る</button><div style="margin-bottom: 15px;"><a id="btn-city-all" href="#" class="btn" style="display: inline-block; padding: 8px 15px; background: var(--primary-color); color: #fff; border-radius: 4px; text-decoration: none;">市区町村全体のデータを見る</a></div><ul id="district-list" style="display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0;"></ul></div></div></section></div></main><footer class="footer"><div class="container"><p>&copy; 2024 RealEstate Analytics. Data provided by MLIT.</p></div></footer></body></html><script>(function(){const prefectures = [{"id":"東京都","name":"東京都"}];
+const cities = [{"id":"13101","name":"千代田区","prefId":"東京都","prefName":"東京都"},{"id":"13102","name":"中央区","prefId":"東京都","prefName":"東京都"},{"id":"13103","name":"港区","prefId":"東京都","prefName":"東京都"},{"id":"13104","name":"新宿区","prefId":"東京都","prefName":"東京都"},{"id":"13105","name":"文京区","prefId":"東京都","prefName":"東京都"}];
+const districts = {"13101":[{"name":"神田佐久間町"},{"name":"神田神保町"},{"name":"神田司町"},{"name":"神田東松下町"},{"name":"神田美土代町"},{"name":"麹町"},{"name":"三番町"},{"name":"六番町"},{"name":"神田淡路町"},{"name":"神田駿河台"},{"name":"神田錦町"},{"name":"二番町"},{"name":"内神田"},{"name":"九段南"},{"name":"西神田"},{"name":"東神田"},{"name":"神田三崎町"},{"name":"飯田橋"},{"name":"一番町"},{"name":"神田和泉町"},{"name":"神田小川町"},{"name":"神田猿楽町"},{"name":"神田須田町"},{"name":"外神田"},{"name":"永田町"},{"name":"紀尾井町"},{"name":"岩本町"},{"name":"神田富山町"},{"name":"神田東紺屋町"},{"name":"九段北"},{"name":"平河町"},{"name":"四番町"},{"name":"富士見"},{"name":"隼町"},{"name":"神田多町"},{"name":"五番町"},{"name":"鍛冶町"}],"13102":[{"name":"勝どき"},{"name":"日本橋箱崎町"},{"name":"日本橋本町"},{"name":"明石町"},{"name":"入船"},{"name":"銀座"},{"name":"日本橋大伝馬町"},{"name":"日本橋富沢町"},{"name":"東日本橋"},{"name":"湊"},{"name":"日本橋横山町"},{"name":"京橋"},{"name":"新川"},{"name":"築地"},{"name":"月島"},{"name":"佃"},{"name":"日本橋"},{"name":"日本橋兜町"},{"name":"日本橋小網町"},{"name":"日本橋中洲"},{"name":"日本橋浜町"},{"name":"八丁堀"},{"name":"新富"},{"name":"日本橋蛎殻町"},{"name":"日本橋茅場町"},{"name":"日本橋小伝馬町"},{"name":"日本橋小舟町"},{"name":"日本橋人形町"},{"name":"日本橋馬喰町"},{"name":"日本橋久松町"},{"name":"日本橋堀留町"},{"name":"日本橋室町"},{"name":"晴海"}],"13103":[{"name":"芝"},{"name":"白金台"},{"name":"台場"},{"name":"海岸"},{"name":"白金"},{"name":"新橋"},{"name":"高輪"},{"name":"虎ノ門"},{"name":"浜松町"},{"name":"東麻布"},{"name":"南青山"},{"name":"南麻布"},{"name":"六本木"},{"name":"港南"},{"name":"西新橋"},{"name":"三田"},{"name":"赤坂"},{"name":"麻布十番"},{"name":"芝浦"},{"name":"西麻布"},{"name":"元赤坂"},{"name":"麻布狸穴町"},{"name":"芝大門"},{"name":"麻布台"},{"name":"東新橋"},{"name":"元麻布"},{"name":"麻布永坂町"},{"name":"芝公園"},{"name":"愛宕"},{"name":"北青山"}],"13104":[{"name":"赤城下町"},{"name":"荒木町"},{"name":"新小川町"},{"name":"水道町"},{"name":"富久町"},{"name":"中落合"},{"name":"西落合"},{"name":"二十騎町"},{"name":"払方町"},{"name":"南元町"},{"name":"矢来町"},{"name":"横寺町"},{"name":"四谷"},{"name":"四谷坂町"},{"name":"新宿"},{"name":"大京町"},{"name":"早稲田鶴巻町"},{"name":"愛住町"},{"name":"河田町"},{"name":"北山伏町"},{"name":"中町"},{"name":"歌舞伎町"},{"name":"筑土八幡町"},{"name":"戸山"},{"name":"中里町"},{"name":"百人町"},{"name":"舟町"},{"name":"南町"},{"name":"山吹町"},{"name":"若松町"},{"name":"市谷仲之町"},{"name":"市谷薬王寺町"},{"name":"大久保"},{"name":"上落合"},{"name":"北町"},{"name":"下落合"},{"name":"白銀町"},{"name":"住吉町"},{"name":"納戸町"},{"name":"西五軒町"},{"name":"東五軒町"},{"name":"南山伏町"},{"name":"余丁町"},{"name":"早稲田町"},{"name":"市谷柳町"},{"name":"神楽坂"},{"name":"天神町"},{"name":"市谷加賀町"},{"name":"市谷砂土原町"},{"name":"市谷台町"},{"name":"市谷田町"},{"name":"市谷本村町"},{"name":"北新宿"},{"name":"左門町"},{"name":"須賀町"},{"name":"高田馬場"},{"name":"箪笥町"},{"name":"中井"},{"name":"西新宿"},{"name":"西早稲田"},{"name":"原町"},{"name":"弁天町"},{"name":"南榎町"},{"name":"四谷三栄町"},{"name":"喜久井町"},{"name":"四谷本塩町"},{"name":"改代町"},{"name":"岩戸町"},{"name":"市谷左内町"},{"name":"片町"},{"name":"下宮比町"},{"name":"赤城元町"},{"name":"若葉"},{"name":"市谷甲良町"},{"name":"榎町"},{"name":"内藤町"},{"name":"若宮町"},{"name":"早稲田南町"},{"name":"袋町"},{"name":"市谷山伏町"},{"name":"信濃町"},{"name":"築地町"},{"name":"市谷八幡町"},{"name":"戸塚町"},{"name":"馬場下町"}],"13105":[{"name":"大塚"},{"name":"音羽"},{"name":"西片"},{"name":"白山"},{"name":"春日"},{"name":"後楽"},{"name":"水道"},{"name":"本郷"},{"name":"向丘"},{"name":"弥生"},{"name":"湯島"},{"name":"小石川"},{"name":"小日向"},{"name":"関口"},{"name":"千石"},{"name":"千駄木"},{"name":"根津"},{"name":"本駒込"},{"name":"目白台"}]};
+
+    // Client-side script for drill-down UI
+    const stepPref = document.getElementById('step-pref');
+    const stepCity = document.getElementById('step-city');
+    const stepDistrict = document.getElementById('step-district');
+    
+    const cityList = document.getElementById('city-list');
+    const districtList = document.getElementById('district-list');
+    
+    const labelPref = document.getElementById('label-pref');
+    const labelCity = document.getElementById('label-city');
+    const btnCityAll = document.getElementById('btn-city-all');
+    
+    let currentPref = null;
+    let currentCity = null;
+
+    // Pref -> City
+    document.querySelectorAll('.pref-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            currentPref = {
+                id: e.target.getAttribute('data-id'),
+                name: e.target.getAttribute('data-name')
+            };
+            labelPref.textContent = currentPref.name;
+            
+            const prefCities = cities.filter(c => c.prefId === currentPref.id);
+            cityList.innerHTML = prefCities.map(c => 
+                `<li><button class="btn city-btn" data-id="${c.id}" data-name="${c.name}" style="padding: 8px 12px; background: #e3f2fd; border: none; border-radius: 4px; cursor: pointer;">${c.name}</button></li>`
+            ).join('');
+            
+            stepPref.style.display = 'none';
+            stepCity.style.display = 'block';
+            
+            // Attach event to new city buttons
+            document.querySelectorAll('.city-btn').forEach(cBtn => {
+                cBtn.addEventListener('click', (ce) => {
+                    currentCity = {
+                        id: ce.target.getAttribute('data-id'),
+                        name: ce.target.getAttribute('data-name')
+                    };
+                    labelCity.textContent = currentCity.name;
+                    btnCityAll.href = `/area/${currentPref.name}/${currentCity.name}`;
+                    
+                    const cityDistricts = districts[currentCity.id] || [];
+                    if (cityDistricts.length === 0) {
+                        districtList.innerHTML = '<li>地区データがありません。</li>';
+                    } else {
+                        districtList.innerHTML = cityDistricts.map(d => 
+                            `<li><a href="/area/${currentPref.name}/${currentCity.name}/${d.name}" style="display:block; padding:8px 12px; background:#e8f5e9; border-radius:4px; text-decoration:none; color:#2e7d32;">${d.name}</a></li>`
+                        ).join('');
+                    }
+                    
+                    stepCity.style.display = 'none';
+                    stepDistrict.style.display = 'block';
+                });
+            });
+        });
+    });
+
+    document.getElementById('back-to-pref').addEventListener('click', () => {
+        stepCity.style.display = 'none';
+        stepPref.style.display = 'block';
+    });
+
+    document.getElementById('back-to-city').addEventListener('click', () => {
+        stepDistrict.style.display = 'none';
+        stepCity.style.display = 'block';
+    });
+})();</script>
