@@ -39,7 +39,13 @@ async function fetchWithRetry(url, retries = 3) {
             const res = await fetch(url, {
                 headers: { 'Ocp-Apim-Subscription-Key': API_KEY }
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) {
+                // 404は国土交通省APIの仕様で「検索結果0件」を表すため、エラーではなく空データとして安全にスキップ
+                if (res.status === 404) {
+                    return { data: [] };
+                }
+                throw new Error(`HTTP ${res.status}`);
+            }
             return await res.json();
         } catch (e) {
             if (i === retries - 1) throw e;
@@ -71,13 +77,8 @@ async function main() {
         await delay(1000); // API制限対策の待機
     }
 
-    // --- テスト・本番の切り替え ---
-    
-    // 【テスト用】取得した市区町村のうち、最初の5件（北海道の5市区町村）だけでストップする
-    const targetCities = allCities.slice(0, 5); 
-    
-    // 【本番用】全国すべての市区町村を対象にする場合は、上の行を消して（または // でコメントアウトして）下の行の // を消してください
-    // const targetCities = allCities; 
+    // 【本番用】全国すべての市区町村を対象にする
+    const targetCities = allCities; 
     
     // ----------------------------
     
@@ -102,7 +103,7 @@ async function main() {
                             BuildingYear, Structure, \`Use\`, Purpose, Direction,
                             Classification, Breadth, CityPlanning, CoverageRatio, FloorAreaRatio,
                             Period, Renovation, Remarks, PriceCategory, DistrictCode
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `;
                     
                     const values = [

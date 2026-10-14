@@ -4,9 +4,13 @@ import { getDb } from '../../../lib/db.js';
 
 export async function getStaticPaths() {
     const db = getDb();
+    // 主要都市・主要市区町村（取引実績上位200自治体）を優先ビルド
     const [rows] = await db.query(`
-        SELECT DISTINCT Prefecture, Municipality 
+        SELECT Prefecture, Municipality 
         FROM transactions
+        GROUP BY Prefecture, Municipality
+        ORDER BY COUNT(*) DESC
+        LIMIT 200
     `);
     
     return rows.map(row => ({

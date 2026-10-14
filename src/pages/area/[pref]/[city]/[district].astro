@@ -4,10 +4,15 @@ import { getDb } from '../../../../lib/db.js';
 
 export async function getStaticPaths() {
     const db = getDb();
+    // Cloudflare Pagesの制限および高速デプロイのため、
+    // 取引実績が豊富な全国の主要・人気エリア上位1,000地区を優先ビルド
     const [rows] = await db.query(`
-        SELECT DISTINCT Prefecture, Municipality, DistrictName 
+        SELECT Prefecture, Municipality, DistrictName 
         FROM transactions 
         WHERE DistrictName IS NOT NULL AND DistrictName != '-'
+        GROUP BY Prefecture, Municipality, DistrictName
+        ORDER BY COUNT(*) DESC
+        LIMIT 500
     `);
     
     return rows.map(row => ({
@@ -60,6 +65,15 @@ if (!appraisalData || !appraisalData.avgOfficial) {
     `, [pref, city]);
     appraisalData = cityAppraisalRows[0] || {};
 }
+
+// 1,000文字の市場分析レポートを取得
+const [descRows] = await db.query(`
+    SELECT Description, CharCount FROM district_descriptions 
+    WHERE Prefecture = ? AND Municipality = ? AND DistrictName = ?
+    LIMIT 1
+`, [pref, city, district]);
+const districtDescription = descRows[0]?.Description || null;
+const descriptionCharCount = descRows[0]?.CharCount || 0;
 ---
 
 <Layout title={`${district} 周辺の不動産価格相場 - RealEstate Analytics`}>
@@ -179,6 +193,22 @@ if (!appraisalData || !appraisalData.avgOfficial) {
                 <div style="height:300px;"><canvas id="ageChart"></canvas></div>
             </section>
         </div>
+
+        {districtDescription && (
+            <section class="report-section" style="background:#fff; padding:25px 30px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.05); margin-bottom:30px; line-height: 1.85;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--primary-color); padding-bottom: 12px; margin-bottom: 20px; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0; color:var(--primary-color); font-size:1.35rem; display:flex; align-items:center; gap:8px;">
+                        <span>📊</span> {district} 不動産市場診断レポート
+                    </h3>
+                    <span style="font-size:0.85rem; color:#555; background:#eef4fa; padding:4px 12px; border-radius:15px; font-weight:bold;">
+                        客観データ分析・約{descriptionCharCount}文字
+                    </span>
+                </div>
+                <div style="font-size:0.95rem; color:#333; white-space: pre-line; letter-spacing: 0.02em;">
+                    {districtDescription}
+                </div>
+            </section>
+        )}
 
         <section class="transactions-section" style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.05); margin-bottom:30px;">
             <h3>直近の取引事例一覧（2023年）</h3>
