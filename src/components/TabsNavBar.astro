@@ -1,0 +1,47 @@
+---
+// src/components/TabsNavBar.astro
+// 物件種別・地価種別の切り替えタブバー（ディレクトリURL対応）
+import { TYPE_CONFIG, VALID_TYPES, normalizeType } from '../lib/typeConfig.js';
+
+export interface Props {
+    currentType?: string;
+    basePath?: string;
+}
+const { currentType: rawType = 'mansion', basePath = '' } = Astro.props;
+const currentType = normalizeType(rawType);
+
+const cleanBase = basePath.replace(/\/+$/, '');
+const overviewTab = {
+    key: 'index',
+    label: '総合',
+    href: cleanBase ? `${cleanBase}/` : '/',
+    isSelected: currentType === 'index',
+};
+const childTabs = VALID_TYPES.map((key) => {
+    const conf = TYPE_CONFIG[key];
+    const href = cleanBase ? `${cleanBase}/${key}` : `/${key}`;
+    return {
+        key,
+        label: conf.label,
+        href,
+        isSelected: key === currentType,
+    };
+});
+const tabs = [overviewTab, ...childTabs];
+---
+
+<div class="tabs-nav-bar">
+    <div class="seg seg-tabs" role="tablist" aria-label="物件・地価種別切り替え">
+        {tabs.map((t) => (
+            <a
+                href={t.href}
+                class="seg-btn"
+                role="tab"
+                data-type-tab={t.key}
+                aria-selected={String(t.isSelected)}
+            >
+                {t.label}
+            </a>
+        ))}
+    </div>
+</div>

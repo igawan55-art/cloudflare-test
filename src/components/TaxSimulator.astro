@@ -1,0 +1,815 @@
+---
+// src/components/TaxSimulator.astro
+// 路線価ページ専用：計算モード選択式（1.路線価評価額 / 2.相続税 / 3.贈与税）シミュレーター
+export interface Props {
+    areaName: string;
+    avgRosenkaPrice: number | null;
+    points?: Array<{
+        rank: number;
+        address: string;
+        division: string;
+        rosenkaPrice: number;
+        rosenkaTsubo: number;
+    }>;
+}
+
+const { areaName, avgRosenkaPrice, points = [] } = Astro.props;
+
+const defaultRosenkaSqm = avgRosenkaPrice && avgRosenkaPrice > 0 ? Math.round(avgRosenkaPrice) : 100000;
+const defaultRosenkaMan = Number((defaultRosenkaSqm / 10000).toFixed(2));
+const defaultAreaSqm = 150; // 約45.4坪
+const defaultOtherAssetsMan = 3000; // その他遺産 3,000万円
+
+// 相続税計算（法定相続分課税方式）
+function calcBracketTaxMan(statShareMan: number): number {
+    if (statShareMan <= 0) return 0;
+    if (statShareMan <= 1000) return statShareMan * 0.10;
+    if (statShareMan <= 3000) return statShareMan * 0.15 - 50;
+    if (statShareMan <= 5000) return statShareMan * 0.20 - 200;
+    if (statShareMan <= 10000) return statShareMan * 0.30 - 700;
+    if (statShareMan <= 20000) return statShareMan * 0.40 - 1700;
+    if (statShareMan <= 30000) return statShareMan * 0.45 - 2700;
+    if (statShareMan <= 60000) return statShareMan * 0.50 - 4200;
+    return statShareMan * 0.55 - 7200;
+}
+
+function calcInheritanceTaxMan(netEstateMan: number, hasSpouse: boolean, childrenCount: number) {
+    const heirsCount = (hasSpouse ? 1 : 0) + Math.max(0, childrenCount);
+    if (heirsCount <= 0) return { basicDeductionMan: 3000, taxableMan: 0, totalTaxMan: 0, afterSpouseTaxMan: 0 };
+    const basicDeductionMan = 3000 + 600 * heirsCount;
+    const taxableMan = Math.max(0, netEstateMan - basicDeductionMan);
+    if (taxableMan <= 0) {
+        return { basicDeductionMan, taxableMan: 0, totalTaxMan: 0, afterSpouseTaxMan: 0 };
+    }
+
+    let totalTaxMan = 0;
+    if (hasSpouse && childrenCount > 0) {
+        const spouseShare = taxableMan * 0.5;
+        const childShare = (taxableMan * 0.5) / childrenCount;
+        totalTaxMan = calcBracketTaxMan(spouseShare) + calcBracketTaxMan(childShare) * childrenCount;
+    } else {
+        const eachShare = taxableMan / heirsCount;
+        totalTaxMan = calcBracketTaxMan(eachShare) * heirsCount;
+    }
+
+    const afterSpouseTaxMan = hasSpouse ? (childrenCount > 0 ? totalTaxMan * 0.5 : 0) : totalTaxMan;
+    return {
+        basicDeductionMan,
+        taxableMan,
+        totalTaxMan: Math.round(totalTaxMan * 10) / 10,
+        afterSpouseTaxMan: Math.round(afterSpouseTaxMan * 10) / 10,
+    };
+}
+
+// 贈与税計算（暦年課税：特例贈与 / 一般贈与）
+function calcGiftTaxMan(giftValueMan: number, isSpecialLineal = true): number {
+    const taxableMan = Math.max(0, giftValueMan - 110);
+    if (taxableMan <= 0) return 0;
+    if (isSpecialLineal) {
+        if (taxableMan <= 200) return taxableMan * 0.10;
+        if (taxableMan <= 400) return taxableMan * 0.15 - 10;
+        if (taxableMan <= 600) return taxableMan * 0.20 - 30;
+        if (taxableMan <= 1000) return taxableMan * 0.30 - 90;
+        if (taxableMan <= 1500) return taxableMan * 0.40 - 190;
+        if (taxableMan <= 3000) return taxableMan * 0.45 - 265;
+        if (taxableMan <= 4500) return taxableMan * 0.50 - 415;
+        return taxableMan * 0.55 - 640;
+    } else {
+        if (taxableMan <= 200) return taxableMan * 0.10;
+        if (taxableMan <= 300) return taxableMan * 0.15 - 10;
+        if (taxableMan <= 400) return taxableMan * 0.20 - 25;
+        if (taxableMan <= 600) return taxableMan * 0.30 - 65;
+        if (taxableMan <= 1000) return taxableMan * 0.40 - 125;
+        if (taxableMan <= 1500) return taxableMan * 0.45 - 175;
+        if (taxableMan <= 3000) return taxableMan * 0.50 - 250;
+        return taxableMan * 0.55 - 400;
+    }
+}
+
+// 初期SSR計算値（150㎡、補正率1.0、その他遺産3,000万円、配偶者＋子2人＝法定相続人3人）
+const initLandEvalMan = (defaultRosenkaSqm * defaultAreaSqm) / 10000;
+const initSmallLotEvalMan = initLandEvalMan * 0.2;
+const initMarketEstMan = (initLandEvalMan / 0.8) * 1.15;
+const initInhNormal = calcInheritanceTaxMan(initLandEvalMan + defaultOtherAssetsMan, true, 2);
+const initInhSmallLot = calcInheritanceTaxMan(initSmallLotEvalMan + defaultOtherAssetsMan, true, 2);
+const initGiftSpecialMan = Math.round(calcGiftTaxMan(initLandEvalMan, true) * 10) / 10;
+const initGiftGeneralMan = Math.round(calcGiftTaxMan(initLandEvalMan, false) * 10) / 10;
+const initSettlementTaxMan = Math.round(Math.max(0, initLandEvalMan - 110 - 2500) * 0.20 * 10) / 10;
+
+// 敷地規模別の相続税・贈与税 試算早見表（SSR）
+const presetSizes = [
+    { label: '約30坪（100㎡）', area: 100, tsubo: 30.2 },
+    { label: '約45坪（150㎡）', area: 150, tsubo: 45.4 },
+    { label: '約60坪（200㎡）', area: 200, tsubo: 60.5 },
+    { label: '約100坪（330㎡）', area: 330, tsubo: 99.8 },
+];
+
+const presetRows = presetSizes.map((s) => {
+    const landEvalMan = (defaultRosenkaSqm * s.area) / 10000;
+    const reducedRatio = s.area <= 330 ? 0.2 : 1 - 0.8 * (330 / s.area);
+    const smallLotEvalMan = landEvalMan * reducedRatio;
+    const inhNoReduction = calcInheritanceTaxMan(landEvalMan + 3000, false, 2);
+    const inhWithReduction = calcInheritanceTaxMan(smallLotEvalMan + 3000, false, 2);
+    const giftSpecial = calcGiftTaxMan(landEvalMan, true);
+    return {
+        ...s,
+        landEvalMan: Math.round(landEvalMan),
+        smallLotEvalMan: Math.round(smallLotEvalMan),
+        inhTaxNormalMan: Math.round(inhNoReduction.totalTaxMan * 10) / 10,
+        inhTaxReducedMan: Math.round(inhWithReduction.totalTaxMan * 10) / 10,
+        giftTaxSpecialMan: Math.round(giftSpecial * 10) / 10,
+    };
+});
+
+const fmtMan = (v: number) => v.toLocaleString('ja-JP', { maximumFractionDigits: 1 });
+---
+
+<section class="section" aria-labelledby="tax-sim-title" data-tax-simulator>
+    <div class="card card-lg">
+        <div class="section-head" style="margin-bottom: 16px;">
+            <div>
+                <h3 class="section-title" id="tax-sim-title">{areaName}の路線価評価額・相続税・贈与税 シミュレーション</h3>
+                <p class="section-sub">
+                    計算したい項目を選択すると、必要な入力項目と試算結果が表示されます（初期値：{areaName}の平均路線価 <b>{defaultRosenkaMan.toLocaleString('ja-JP')} 万円/㎡</b>）
+                </p>
+            </div>
+            <span class="badge info">国税庁 速算表準拠</span>
+        </div>
+
+        <!-- STEP 1: 計算モードの選択タブ -->
+        <div class="tax-mode-selector" role="tablist" aria-label="計算シミュレーションの種類を選択">
+            <button
+                type="button"
+                class="tax-mode-btn is-active"
+                role="tab"
+                aria-selected="true"
+                data-sim-mode-btn="eval"
+            >
+                <span class="tax-mode-step">1</span>
+                <span class="tax-mode-label">
+                    <b>路線価評価額の試算</b>
+                    <small>面積・補正率・特例から土地評価額を計算</small>
+                </span>
+            </button>
+            <button
+                type="button"
+                class="tax-mode-btn"
+                role="tab"
+                aria-selected="false"
+                data-sim-mode-btn="inheritance"
+            >
+                <span class="tax-mode-step">2</span>
+                <span class="tax-mode-label">
+                    <b>相続税の試算</b>
+                    <small>法定相続人・その他遺産を含めた相続税額を計算</small>
+                </span>
+            </button>
+            <button
+                type="button"
+                class="tax-mode-btn"
+                role="tab"
+                aria-selected="false"
+                data-sim-mode-btn="gift"
+            >
+                <span class="tax-mode-step">3</span>
+                <span class="tax-mode-label">
+                    <b>贈与税の試算</b>
+                    <small>生前贈与時の暦年課税・精算課税の税額を計算</small>
+                </span>
+            </button>
+        </div>
+
+        <!-- STEP 2: 選択したモードに応じた入力フォーム & 計算結果 -->
+        <div class="tax-sim-grid">
+            <!-- 左カラム：条件入力（選択モードに応じて必要な項目のみ表示） -->
+            <div class="tax-sim-inputs">
+                <div class="tax-input-title" data-sim-input-heading>路線価評価額の計算条件を入力</div>
+
+                <!-- 共通入力：標準地選択 & 路線価 & 土地面積 -->
+                {points.length > 0 && (
+                    <div class="field">
+                        <label for="sim-point-select">エリア内の標準地から路線価を選択（任意）</label>
+                        <select id="sim-point-select" class="select" data-sim-point>
+                            <option value={defaultRosenkaMan}>
+                                {areaName}の平均路線価（{defaultRosenkaMan.toLocaleString('ja-JP')} 万円/㎡）
+                            </option>
+                            {points.slice(0, 20).map((pt) => {
+                                const manVal = Number((pt.rosenkaPrice / 10000).toFixed(2));
+                                return (
+                                    <option value={manVal}>
+                                        {pt.address}（{pt.division}：{manVal.toLocaleString('ja-JP')} 万円/㎡）
+                                    </option>
+                                );
+                            })}
+                        </select>
+                    </div>
+                )}
+
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="sim-rosenka">路線価（万円/㎡）</label>
+                        <input
+                            id="sim-rosenka"
+                            type="number"
+                            class="select"
+                            step="0.1"
+                            min="0.1"
+                            value={defaultRosenkaMan}
+                            data-sim-input="rosenka"
+                        />
+                    </div>
+                    <div class="field">
+                        <label for="sim-area">土地面積（㎡）</label>
+                        <input
+                            id="sim-area"
+                            type="number"
+                            class="select"
+                            step="5"
+                            min="10"
+                            value={defaultAreaSqm}
+                            data-sim-input="area"
+                        />
+                    </div>
+                </div>
+
+                <!-- ① 路線価評価額モード専用の追加入力：土地形状・利用区分補正 -->
+                <div class="mode-fields" data-mode-fields="eval">
+                    <div class="grid-2">
+                        <div class="field">
+                            <label for="sim-shape-rate">奥行・形状等の補正率目安</label>
+                            <select id="sim-shape-rate" class="select" data-sim-input="shapeRate">
+                                <option value="1.00" selected>標準的な整形地（補正率 1.00）</option>
+                                <option value="1.03">角地・二方路線影響加算（+3%目安：1.03）</option>
+                                <option value="0.95">やや細長い・間口狭小等（-5%目安：0.95）</option>
+                                <option value="0.90">不整形地・奥行長大等（-10%目安：0.90）</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="sim-eval-reduction">小規模宅地等の特例（参考試算）</label>
+                            <select id="sim-eval-reduction" class="select" data-sim-input="evalReduction">
+                                <option value="residential" selected>特定居住用宅地等（330㎡まで80%減額）</option>
+                                <option value="rental">貸付事業用宅地等（200㎡まで50%減額）</option>
+                                <option value="none">特例適用なし（100%評価）</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ② 相続税モード専用の追加入力：特例・その他遺産・法定相続人 -->
+                <div class="mode-fields" data-mode-fields="inheritance" hidden>
+                    <div class="grid-2">
+                        <div class="field">
+                            <label for="sim-reduction">小規模宅地等の特例</label>
+                            <select id="sim-reduction" class="select" data-sim-input="reduction">
+                                <option value="residential" selected>特定居住用宅地等（330㎡まで80%減額）</option>
+                                <option value="rental">貸付事業用宅地等（200㎡まで50%減額）</option>
+                                <option value="none">特例適用なし（更地・一般宅地 100%評価）</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="sim-other-assets">その他の遺産額（預貯金・建物等・万円）</label>
+                            <input
+                                id="sim-other-assets"
+                                type="number"
+                                class="select"
+                                step="100"
+                                min="0"
+                                value={defaultOtherAssetsMan}
+                                data-sim-input="otherAssets"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="margin-top: 12px;">
+                        <div class="field">
+                            <label for="sim-spouse">配偶者の有無</label>
+                            <select id="sim-spouse" class="select" data-sim-input="spouse">
+                                <option value="yes" selected>配偶者あり（配偶者の税額軽減あり）</option>
+                                <option value="no">配偶者なし（二次相続など）</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="sim-children">子ども（他の法定相続人）の人数</label>
+                            <select id="sim-children" class="select" data-sim-input="children">
+                                <option value="1">1人</option>
+                                <option value="2" selected>2人</option>
+                                <option value="3">3人</option>
+                                <option value="4">4人</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ③ 贈与税モード専用の追加入力：贈与割合・贈与区分 -->
+                <div class="mode-fields" data-mode-fields="gift" hidden>
+                    <div class="grid-2">
+                        <div class="field">
+                            <label for="sim-gift-share">生前贈与する土地の持分割合</label>
+                            <select id="sim-gift-share" class="select" data-sim-input="giftShare">
+                                <option value="1" selected>土地全体（100%）を一括贈与</option>
+                                <option value="0.5">土地の持分 1/2（50%）を贈与</option>
+                                <option value="0.3333">土地の持分 1/3（約33%）を贈与</option>
+                                <option value="0.25">土地の持分 1/4（25%）を贈与</option>
+                                <option value="0.1">土地の持分 1/10（10%）を贈与</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="sim-gift-type">贈与者と受贈者の関係（税率区分）</label>
+                            <select id="sim-gift-type" class="select" data-sim-input="giftType">
+                                <option value="special" selected>特例贈与（親・祖父母 → 18歳以上の子・孫）</option>
+                                <option value="general">一般贈与（夫婦間・兄弟間・未成年者への贈与）</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右カラム：選択したモードに対応する計算結果パネル -->
+            <div class="tax-sim-results">
+                <!-- ① 路線価評価額の試算結果 -->
+                <div class="tax-result-box" data-mode-result="eval">
+                    <div class="tax-result-header">路線価評価額の試算結果</div>
+                    <div class="stat-row tax-highlight-row">
+                        <span class="k"><b>土地の路線価評価額（自用地評価）</b><br><small class="muted">路線価 × 面積（約<span data-sim-out="evalTsubo">45.4</span>坪）× 補正率</small></span>
+                        <span class="v tax-highlight-val"><b class="num" data-sim-out="landEval">{fmtMan(Math.round(initLandEvalMan))}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">小規模宅地等の特例 適用後の評価額</span>
+                        <span class="v strong text-accent"><b class="num" data-sim-out="evalReduced">{fmtMan(Math.round(initSmallLotEvalMan))}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">特例による評価減額（圧縮効果）</span>
+                        <span class="v"><b class="num" data-sim-out="evalSaved">-{fmtMan(Math.round(initLandEvalMan - initSmallLotEvalMan))}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">実勢売買相場の目安（路線価÷0.8×1.15換算）</span>
+                        <span class="v muted">約 <b class="num" data-sim-out="evalMarketEst">{fmtMan(Math.round(initMarketEstMan))}</b> 万円</span>
+                    </div>
+                </div>
+
+                <!-- ② 相続税の試算結果 -->
+                <div class="tax-result-box" data-mode-result="inheritance" hidden>
+                    <div class="tax-result-header">相続税の試算結果</div>
+                    <div class="stat-row">
+                        <span class="k">土地の評価額（基本 <span data-sim-out="inhLandBase">{fmtMan(Math.round(initLandEvalMan))}</span>万円 → 特例後）</span>
+                        <span class="v strong"><b class="num" data-sim-out="reducedEval">{fmtMan(Math.round(initSmallLotEvalMan))}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">正味の遺産総額（特例後の土地＋その他遺産）</span>
+                        <span class="v"><b class="num" data-sim-out="netEstate">{fmtMan(Math.round(initSmallLotEvalMan + defaultOtherAssetsMan))}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">基礎控除額（3,000万円＋600万円×法定相続人<span data-sim-out="heirsCount">3</span>人）</span>
+                        <span class="v"><b class="num" data-sim-out="basicDeduction">{fmtMan(initInhSmallLot.basicDeductionMan)}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">課税遺産総額（正味遺産 − 基礎控除）</span>
+                        <span class="v"><b class="num" data-sim-out="taxableEstate">{fmtMan(Math.round(initInhSmallLot.taxableMan))}</b> 万円</span>
+                    </div>
+                    <div class="stat-row tax-highlight-row">
+                        <span class="k"><b>相続税の納付税額目安</b><br><small class="muted">（特例・配偶者軽減適用後の世帯合計）</small></span>
+                        <span class="v tax-highlight-val"><b class="num" data-sim-out="inhTaxFinal">{fmtMan(initInhSmallLot.afterSpouseTaxMan)}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k"><small class="muted">※小規模宅地特例・配偶者軽減なしの場合の相続税総額</small></span>
+                        <span class="v"><small class="muted"><b class="num" data-sim-out="inhTaxNoReduction">{fmtMan(initInhNormal.totalTaxMan)}</b> 万円</small></span>
+                    </div>
+                </div>
+
+                <!-- ③ 贈与税の試算結果 -->
+                <div class="tax-result-box" data-mode-result="gift" hidden>
+                    <div class="tax-result-header">贈与税の試算結果（土地を生前贈与した場合）</div>
+                    <div class="stat-row">
+                        <span class="k">贈与対象の土地評価額（持分反映後）</span>
+                        <span class="v strong"><b class="num" data-sim-out="giftEval">{fmtMan(Math.round(initLandEvalMan))}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">暦年課税 基礎控除後の課税価格（−110万円）</span>
+                        <span class="v"><b class="num" data-sim-out="giftTaxable">{fmtMan(Math.max(0, Math.round(initLandEvalMan) - 110))}</b> 万円</span>
+                    </div>
+                    <div class="stat-row tax-highlight-row">
+                        <span class="k"><b data-sim-out="giftSelectedLabel">暦年課税の贈与税額目安（特例贈与）</b><br><small class="muted">実効負担率：約 <span data-sim-out="giftEffRate">{initLandEvalMan > 0 ? ((initGiftSpecialMan / initLandEvalMan) * 100).toFixed(1) : '0.0'}</span>%</small></span>
+                        <span class="v tax-highlight-val"><b class="num" data-sim-out="giftSelectedTax">{fmtMan(initGiftSpecialMan)}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">比較：特例贈与（親・祖父母→成人の子・孫）の税額</span>
+                        <span class="v"><b class="num" data-sim-out="giftSpecial">{fmtMan(initGiftSpecialMan)}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">比較：一般贈与（夫婦・兄弟・未成年へ）の税額</span>
+                        <span class="v"><b class="num" data-sim-out="giftGeneral">{fmtMan(initGiftGeneralMan)}</b> 万円</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="k">相続時精算課税制度を選択した場合の税額<br><small class="muted">（基礎控除110万円＋特別控除2,500万円・超過分一律20%）</small></span>
+                        <span class="v strong text-accent"><b class="num" data-sim-out="giftSettlement">{fmtMan(initSettlementTaxMan)}</b> 万円</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 敷地規模別の相続税・贈与税 試算早見表（SSR） -->
+        <div style="margin-top: 28px;">
+            <h4 class="card-title" style="font-size: 1rem; margin-bottom: 8px;">
+                {areaName}の敷地規模別 路線価評価額・相続税・贈与税の早見表
+            </h4>
+            <p class="card-sub" style="margin-bottom: 14px;">
+                平均路線価（{defaultRosenkaMan.toLocaleString('ja-JP')} 万円/㎡）で算出した面積別の比較（※相続税は「その他の遺産3,000万円・法定相続人2人（子2人）」のモデルケース）
+            </p>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>敷地規模（面積）</th>
+                            <th class="r">路線価評価額</th>
+                            <th class="r">小規模宅地特例後（80%減）</th>
+                            <th class="r">相続税目安（特例なし）</th>
+                            <th class="r">相続税目安（特例あり）</th>
+                            <th class="r">贈与税目安（特例贈与）</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {presetRows.map((row) => (
+                            <tr>
+                                <td class="strong">{row.label}</td>
+                                <td class="r num strong">{row.landEvalMan.toLocaleString('ja-JP')} 万円</td>
+                                <td class="r num">{row.smallLotEvalMan.toLocaleString('ja-JP')} 万円</td>
+                                <td class="r num">{fmtMan(row.inhTaxNormalMan)} 万円</td>
+                                <td class="r num strong text-accent">{fmtMan(row.inhTaxReducedMan)} 万円</td>
+                                <td class="r num">{fmtMan(row.giftTaxSpecialMan)} 万円</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <p class="kpi-note" style="margin-top: 10px;">
+                ※生前贈与で土地を移転する場合は、贈与税のほか不動産取得税および登録免許税（2.0%）が別途かかります（相続による取得は不動産取得税非課税、登録免許税0.4%）。
+            </p>
+        </div>
+    </div>
+</section>
+
+<style>
+    .mode-fields[hidden],
+    .tax-result-box[hidden] {
+        display: none !important;
+    }
+    .tax-mode-selector {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .tax-mode-btn {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--ink);
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .tax-mode-btn:hover {
+        border-color: #93c5fd;
+        background: #f8fafc;
+    }
+    .tax-mode-btn.is-active {
+        border-color: var(--accent, #0284c7);
+        background: var(--accent-50, #f0f9ff);
+        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.12);
+    }
+    .tax-mode-step {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #475569;
+        font-size: 0.85rem;
+        font-weight: 800;
+        flex-shrink: 0;
+    }
+    .tax-mode-btn.is-active .tax-mode-step {
+        background: var(--accent, #0284c7);
+        color: #ffffff;
+    }
+    .tax-mode-label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .tax-mode-label b {
+        font-size: 0.95rem;
+        color: var(--ink);
+    }
+    .tax-mode-label small {
+        font-size: 0.75rem;
+        color: var(--muted);
+        line-height: 1.3;
+    }
+    .tax-sim-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.1fr;
+        gap: 24px;
+        align-items: start;
+    }
+    .tax-sim-inputs {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px;
+    }
+    .tax-input-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #334155;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+    }
+    .tax-sim-results {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .tax-result-box {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 20px;
+        background: #ffffff;
+    }
+    .tax-result-header {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--accent, #0284c7);
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+    }
+    .tax-highlight-row {
+        background: var(--accent-50, #f0f9ff);
+        padding: 10px 12px;
+        border-radius: 8px;
+        margin: 6px 0;
+    }
+    .tax-highlight-val {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--accent, #0284c7);
+    }
+    @media (max-width: 820px) {
+        .tax-mode-selector {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+        .tax-sim-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script is:inline>
+(function () {
+    const TSUBO = 3.30578;
+    const MODE_TITLES = {
+        eval: '路線価評価額の計算条件を入力',
+        inheritance: '相続税の計算条件を入力',
+        gift: '贈与税の計算条件を入力',
+    };
+
+    const roots = document.querySelectorAll('[data-tax-simulator]');
+    roots.forEach((root) => {
+        if (root.dataset.simBound) return;
+        root.dataset.simBound = '1';
+
+        const modeBtns = root.querySelectorAll('[data-sim-mode-btn]');
+        const modeFields = root.querySelectorAll('[data-mode-fields]');
+        const modeResults = root.querySelectorAll('[data-mode-result]');
+        const inputHeading = root.querySelector('[data-sim-input-heading]');
+
+        const pointSelect = root.querySelector('[data-sim-point]');
+        const rosenkaInput = root.querySelector('[data-sim-input="rosenka"]');
+        const areaInput = root.querySelector('[data-sim-input="area"]');
+        const shapeRateSelect = root.querySelector('[data-sim-input="shapeRate"]');
+        const evalReductionSelect = root.querySelector('[data-sim-input="evalReduction"]');
+        const reductionSelect = root.querySelector('[data-sim-input="reduction"]');
+        const otherAssetsInput = root.querySelector('[data-sim-input="otherAssets"]');
+        const spouseSelect = root.querySelector('[data-sim-input="spouse"]');
+        const childrenSelect = root.querySelector('[data-sim-input="children"]');
+        const giftShareSelect = root.querySelector('[data-sim-input="giftShare"]');
+        const giftTypeSelect = root.querySelector('[data-sim-input="giftType"]');
+
+        // モード切替
+        const switchMode = (targetMode) => {
+            modeBtns.forEach((btn) => {
+                const active = btn.getAttribute('data-sim-mode-btn') === targetMode;
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+            modeFields.forEach((f) => {
+                f.hidden = f.getAttribute('data-mode-fields') !== targetMode;
+            });
+            modeResults.forEach((r) => {
+                r.hidden = r.getAttribute('data-mode-result') !== targetMode;
+            });
+            if (inputHeading && MODE_TITLES[targetMode]) {
+                inputHeading.textContent = MODE_TITLES[targetMode];
+            }
+        };
+
+        modeBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const mode = btn.getAttribute('data-sim-mode-btn');
+                if (mode) switchMode(mode);
+            });
+        });
+
+        const setOut = (key, val) => {
+            const el = root.querySelector(`[data-sim-out="${key}"]`);
+            if (el) el.textContent = val;
+        };
+
+        const fmtMan = (n) => {
+            const v = Math.round(n * 10) / 10;
+            return v.toLocaleString('ja-JP', { maximumFractionDigits: 1 });
+        };
+
+        const fmtInt = (n) => Math.round(n).toLocaleString('ja-JP');
+
+        const calcBracket = (share) => {
+            if (share <= 0) return 0;
+            if (share <= 1000) return share * 0.10;
+            if (share <= 3000) return share * 0.15 - 50;
+            if (share <= 5000) return share * 0.20 - 200;
+            if (share <= 10000) return share * 0.30 - 700;
+            if (share <= 20000) return share * 0.40 - 1700;
+            if (share <= 30000) return share * 0.45 - 2700;
+            if (share <= 60000) return share * 0.50 - 4200;
+            return share * 0.55 - 7200;
+        };
+
+        const calcInh = (netEstateMan, hasSpouse, childrenCount) => {
+            const heirsCount = (hasSpouse ? 1 : 0) + Math.max(0, childrenCount);
+            const basicDeductionMan = 3000 + 600 * heirsCount;
+            const taxableMan = Math.max(0, netEstateMan - basicDeductionMan);
+            if (taxableMan <= 0 || heirsCount <= 0) {
+                return { heirsCount, basicDeductionMan, taxableMan: 0, totalTaxMan: 0, afterSpouseTaxMan: 0 };
+            }
+            let totalTaxMan = 0;
+            if (hasSpouse && childrenCount > 0) {
+                const sp = taxableMan * 0.5;
+                const ch = (taxableMan * 0.5) / childrenCount;
+                totalTaxMan = calcBracket(sp) + calcBracket(ch) * childrenCount;
+            } else {
+                const each = taxableMan / heirsCount;
+                totalTaxMan = calcBracket(each) * heirsCount;
+            }
+            const afterSpouseTaxMan = hasSpouse ? (childrenCount > 0 ? totalTaxMan * 0.5 : 0) : totalTaxMan;
+            return { heirsCount, basicDeductionMan, taxableMan, totalTaxMan, afterSpouseTaxMan };
+        };
+
+        const calcGift = (giftMan, isSpecial) => {
+            const taxable = Math.max(0, giftMan - 110);
+            if (taxable <= 0) return 0;
+            if (isSpecial) {
+                if (taxable <= 200) return taxable * 0.10;
+                if (taxable <= 400) return taxable * 0.15 - 10;
+                if (taxable <= 600) return taxable * 0.20 - 30;
+                if (taxable <= 1000) return taxable * 0.30 - 90;
+                if (taxable <= 1500) return taxable * 0.40 - 190;
+                if (taxable <= 3000) return taxable * 0.45 - 265;
+                if (taxable <= 4500) return taxable * 0.50 - 415;
+                return taxable * 0.55 - 640;
+            } else {
+                if (taxable <= 200) return taxable * 0.10;
+                if (taxable <= 300) return taxable * 0.15 - 10;
+                if (taxable <= 400) return taxable * 0.20 - 25;
+                if (taxable <= 600) return taxable * 0.30 - 65;
+                if (taxable <= 1000) return taxable * 0.40 - 125;
+                if (taxable <= 1500) return taxable * 0.45 - 175;
+                if (taxable <= 3000) return taxable * 0.50 - 250;
+                return taxable * 0.55 - 400;
+            }
+        };
+
+        const calcReducedEval = (baseEvalMan, areaSqm, type) => {
+            if (areaSqm <= 0) return 0;
+            if (type === 'residential') {
+                const ratio = areaSqm <= 330 ? 0.2 : 1 - 0.8 * (330 / areaSqm);
+                return baseEvalMan * ratio;
+            }
+            if (type === 'rental') {
+                const ratio = areaSqm <= 200 ? 0.5 : 1 - 0.5 * (200 / areaSqm);
+                return baseEvalMan * ratio;
+            }
+            return baseEvalMan;
+        };
+
+        const recalc = () => {
+            const rosenkaMan = Math.max(0, parseFloat(rosenkaInput?.value) || 0);
+            const areaSqm = Math.max(0, parseFloat(areaInput?.value) || 0);
+            const shapeRate = parseFloat(shapeRateSelect?.value || '1.00') || 1.0;
+            const evalReductionType = evalReductionSelect?.value || 'residential';
+            const reductionType = reductionSelect?.value || 'residential';
+            const otherAssetsMan = Math.max(0, parseFloat(otherAssetsInput?.value) || 0);
+            const hasSpouse = (spouseSelect?.value || 'yes') === 'yes';
+            const childrenCount = Math.max(0, parseInt(childrenSelect?.value || '2', 10));
+            const giftShare = Math.max(0.01, parseFloat(giftShareSelect?.value || '1'));
+            const giftType = giftTypeSelect?.value || 'special';
+
+            // 1. 路線価評価額モード計算
+            const evalBaseMan = rosenkaMan * areaSqm * shapeRate;
+            const evalReducedMan = calcReducedEval(evalBaseMan, areaSqm, evalReductionType);
+            const evalSavedMan = Math.max(0, evalBaseMan - evalReducedMan);
+            const evalMarketEstMan = (evalBaseMan / 0.8) * 1.15;
+
+            setOut('evalTsubo', (areaSqm / TSUBO).toFixed(1));
+            setOut('landEval', fmtInt(evalBaseMan));
+            setOut('evalReduced', fmtInt(evalReducedMan));
+            setOut('evalSaved', evalSavedMan > 0 ? `-${fmtInt(evalSavedMan)}` : '0');
+            setOut('evalMarketEst', fmtInt(evalMarketEstMan));
+
+            // 2. 相続税モード計算
+            const inhBaseLandMan = rosenkaMan * areaSqm;
+            const inhReducedLandMan = calcReducedEval(inhBaseLandMan, areaSqm, reductionType);
+            const inhReduced = calcInh(inhReducedLandMan + otherAssetsMan, hasSpouse, childrenCount);
+            const inhNormal = calcInh(inhBaseLandMan + otherAssetsMan, hasSpouse, childrenCount);
+
+            setOut('inhLandBase', fmtInt(inhBaseLandMan));
+            setOut('reducedEval', fmtInt(inhReducedLandMan));
+            setOut('netEstate', fmtInt(inhReducedLandMan + otherAssetsMan));
+            setOut('heirsCount', String(inhReduced.heirsCount));
+            setOut('basicDeduction', fmtInt(inhReduced.basicDeductionMan));
+            setOut('taxableEstate', fmtInt(inhReduced.taxableMan));
+            setOut('inhTaxFinal', fmtMan(inhReduced.afterSpouseTaxMan));
+            setOut('inhTaxNoReduction', fmtMan(inhNormal.totalTaxMan));
+
+            // 3. 贈与税モード計算
+            const giftEvalMan = rosenkaMan * areaSqm * giftShare;
+            const giftTaxableMan = Math.max(0, giftEvalMan - 110);
+            const giftSpecialMan = calcGift(giftEvalMan, true);
+            const giftGeneralMan = calcGift(giftEvalMan, false);
+            const selectedGiftTaxMan = giftType === 'special' ? giftSpecialMan : giftGeneralMan;
+            const effRate = giftEvalMan > 0 ? ((selectedGiftTaxMan / giftEvalMan) * 100).toFixed(1) : '0.0';
+            const giftSettlementMan = Math.max(0, giftEvalMan - 110 - 2500) * 0.20;
+
+            setOut('giftEval', fmtInt(giftEvalMan));
+            setOut('giftTaxable', fmtInt(giftTaxableMan));
+            setOut(
+                'giftSelectedLabel',
+                giftType === 'special'
+                    ? '暦年課税の贈与税額目安（特例贈与）'
+                    : '暦年課税の贈与税額目安（一般贈与）'
+            );
+            setOut('giftSelectedTax', fmtMan(selectedGiftTaxMan));
+            setOut('giftEffRate', effRate);
+            setOut('giftSpecial', fmtMan(giftSpecialMan));
+            setOut('giftGeneral', fmtMan(giftGeneralMan));
+            setOut('giftSettlement', fmtMan(giftSettlementMan));
+        };
+
+        if (pointSelect && rosenkaInput) {
+            pointSelect.addEventListener('change', () => {
+                rosenkaInput.value = pointSelect.value;
+                recalc();
+            });
+        }
+
+        // 2つの小規模宅地特例プルダウンを相互同期
+        if (evalReductionSelect && reductionSelect) {
+            evalReductionSelect.addEventListener('change', () => {
+                reductionSelect.value = evalReductionSelect.value;
+                recalc();
+            });
+            reductionSelect.addEventListener('change', () => {
+                evalReductionSelect.value = reductionSelect.value;
+                recalc();
+            });
+        }
+
+        [
+            rosenkaInput,
+            areaInput,
+            shapeRateSelect,
+            evalReductionSelect,
+            reductionSelect,
+            otherAssetsInput,
+            spouseSelect,
+            childrenSelect,
+            giftShareSelect,
+            giftTypeSelect,
+        ].forEach((el) => {
+            if (!el) return;
+            el.addEventListener('input', recalc);
+            el.addEventListener('change', recalc);
+        });
+    });
+})();
+</script>

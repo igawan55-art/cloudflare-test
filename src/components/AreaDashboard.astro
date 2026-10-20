@@ -1,0 +1,822 @@
+---
+// src/components/AreaDashboard.astro
+// エリア相場ダッシュボード（実勢取引：KPI・推移グラフ・条件フィルタ・取引事例 ＆ 地価指標：路線価・公示価格・基準地価）
+import { generateAreaSummaryHtml } from '../lib/areaSummary.js';
+import TaxSimulator from './TaxSimulator.astro';
+
+export interface Props {
+    areaName: string;
+    prefName?: string;
+    cityName?: string;
+    districtName?: string;
+    stats: { types: Record<string, any> };
+    fluctuation: number | null;
+    showMunicipality?: boolean;
+    initialType?: 'mansion' | 'house' | 'land' | 'rosenka' | 'official' | 'standard';
+    landPrices?: any;
+}
+const {
+    areaName,
+    prefName = '',
+    cityName = '',
+    districtName = '',
+    stats,
+    fluctuation,
+    showMunicipality = false,
+    initialType = 'mansion',
+    landPrices = null,
+} = Astro.props;
+
+const isLandPriceInitial = initialType === 'rosenka' || initialType === 'official' || initialType === 'standard';
+
+const TYPE_LABELS: Record<string, string> = {
+    mansion: '中古マンション',
+    house: '戸建て',
+    land: '土地',
+    rosenka: '路線価',
+    official: '公示価格',
+    standard: '基準地価',
+};
+const currentTypeLabel = TYPE_LABELS[initialType] || '中古マンション';
+
+// 実勢取引ビューの場合のみクライアントJS用ペイロードを生成（該当種別のみ、トップページのみ全種別）
+const txTypesPayload = showMunicipality
+    ? stats.types
+    : { [initialType]: stats?.types?.[initialType] || { count: 0, avgPrice: null, avgSqm: null, avgArea: null, quarters: [], rows: [] } };
+
+const payload = !isLandPriceInitial
+    ? JSON.stringify({
+          types: txTypesPayload,
+          fluctuation,
+          showMunicipality,
+          initialType,
+      }).replace(/</g, '\\u003c')
+    : '';
+
+const chip = (filter: string, value: string, label: string) => ({ filter, value, label });
+const ageChips = [chip('age', '', 'すべて'), chip('age', '10', '築10年以内'), chip('age', '20', '築20年以内'), chip('age', '30', '築30年以内'), chip('age', 'old', '築30年超')];
+const planChips = [chip('plan', '', 'すべて'), chip('plan', '1', '1R〜1LDK'), chip('plan', '2', '2K〜2LDK'), chip('plan', '3', '3K以上')];
+const structChips = [chip('struct', '', 'すべて'), chip('struct', 'rc', 'RC・SRC'), chip('struct', 'wood', '木造'), chip('struct', 'other', 'その他')];
+const areaChips = initialType === 'mansion'
+    ? [chip('area', '', 'すべて'), chip('area', 's', '40㎡未満'), chip('area', 'm', '40〜70㎡'), chip('area', 'l', '70㎡以上')]
+    : [chip('area', '', 'すべて'), chip('area', 's', '100㎡未満'), chip('area', 'm', '100〜200㎡'), chip('area', 'l', '200㎡以上')];
+
+const lp = landPrices || { official: {}, standard: {}, rosenka: {}, points: [] };
+const off = lp.official || {};
+const std = lp.standard || {};
+const ros = lp.rosenka || {};
+const points = lp.points || [];
+
+const TSUBO = 3.30578;
+const DATA_YEAR = new Date().getFullYear();
+const fmt1 = (n: number | null | undefined) => (n == null || !isFinite(n) ? '—' : n.toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+const fmtInt = (n: number | null | undefined) => (n == null || !isFinite(n) ? '—' : Math.round(n).toLocaleString('ja-JP'));
+const man1 = (yen: number | null | undefined) => (yen == null || !isFinite(yen) ? '—' : (yen / 10000).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+const manInt = (yen: number | null | undefined) => (yen == null || !isFinite(yen) ? '—' : Math.round(yen / 10000).toLocaleString('ja-JP'));
+const pct = (v: number | null | undefined) => (v == null || !isFinite(v) ? '—' : `${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%`);
+const dcls = (v: number | null | undefined) => (v == null ? 'flat' : v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
+
+// 実勢取引の初期SSRデータ
+const currentTx = !isLandPriceInitial ? (stats?.types?.[initialType] || { count: 0, avgPrice: null, avgSqm: null, avgArea: null, quarters: [], rows: [] }) : null;
+const initialRows = currentTx?.rows ? currentTx.rows.slice(0, 20) : [];
+const isMansion = initialType === 'mansion';
+const isLand = initialType === 'land';
+
+// ファーストビュー直下の自動生成要約文（市区町村・町字ページ用）
+const summaryHtml = !showMunicipality
+    ? generateAreaSummaryHtml({
+          pref: prefName,
+          city: cityName || areaName,
+          district: districtName,
+          currentType: initialType,
+          stats,
+          landPrices,
+          fluctuation,
+      })
+    : '';
+---
+
+<div data-dashboard>
+    {summaryHtml && (
+        <p class="area-summary-text" set:html={summaryHtml} />
+    )}
+    {!isLandPriceInitial && (
+        <>
+            <script is:inline type="application/json" set:html={payload}></script>
+
+            <!-- ==================== 1. 実勢取引ビュー (中古マンション / 戸建て / 土地) ==================== -->
+            <div data-view="tx">
+                <!-- エリア相場サマリー -->
+                <section class="section" aria-labelledby="kpi-title">
+                    <div class="section-head">
+                        <div>
+                            <h2 class="section-title" id="kpi-title">{areaName}の{currentTypeLabel}相場サマリー</h2>
+                            <p class="section-sub">取引実績（<span data-kpi-type>{currentTypeLabel}</span>）に基づく集計値</p>
+                        </div>
+                    </div>
+
+                    <div class="kpi-grid">
+                        <div class="card kpi">
+                            <div class="kpi-label">
+                                <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                                平均取引価格
+                            </div>
+                            <div class="kpi-value"><span data-kpi="price">{manInt(currentTx?.avgPrice)}</span><span class="kpi-unit">万円</span></div>
+                            <div class="kpi-note">平均面積 <b class="num"><span data-kpi="avgArea">{fmt1(currentTx?.avgArea)}</span> ㎡</b></div>
+                        </div>
+                        <div class="card kpi">
+                            <div class="kpi-label">
+                                <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+                                平均坪単価
+                            </div>
+                            <div class="kpi-value"><span data-kpi="tsubo">{currentTx?.avgSqm ? man1(currentTx.avgSqm * TSUBO) : '—'}</span><span class="kpi-unit">万円/坪</span></div>
+                            <div class="kpi-note">㎡単価 <b class="num"><span data-kpi="sqm">{man1(currentTx?.avgSqm)}</span> 万円/㎡</b></div>
+                        </div>
+                        <div class="card kpi">
+                            <div class="kpi-label">
+                                <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg></span>
+                                前年比騰落率
+                            </div>
+                            <div class={`kpi-value delta ${dcls(fluctuation)}`} data-kpi="fluc">
+                                {fluctuation != null ? (
+                                    <>{fluctuation > 0 ? '+' : ''}{fluctuation.toFixed(2)}<span class="kpi-unit">%</span></>
+                                ) : '—'}
+                            </div>
+                            <div class="kpi-note">
+                                <span class={`badge ${fluctuation != null ? (fluctuation > 0 ? 'up' : fluctuation < 0 ? 'down' : 'neutral') : 'neutral'}`} data-kpi="flucBadge">
+                                    {fluctuation != null ? (fluctuation > 0 ? '▲ 上昇' : fluctuation < 0 ? '▼ 下落' : '横ばい') : 'データなし'}
+                                </span>&nbsp;地価公示ベース
+                            </div>
+                        </div>
+                        <div class="card kpi">
+                            <div class="kpi-label">
+                                <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+                                直近の取引件数
+                            </div>
+                            <div class="kpi-value"><span data-kpi="count">{fmtInt(currentTx?.count)}</span><span class="kpi-unit">件</span></div>
+                            <div class="kpi-note">集計期間 <b>2022年〜最新</b></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 価格推移グラフ & 条件フィルタ -->
+                <section class="section" aria-labelledby="trend-title">
+                    <div class="grid-chart">
+                        <div class="card">
+                            <div class="section-head" style="margin-bottom:0;">
+                                <div>
+                                    <h2 class="card-title" id="trend-title">価格推移と取引件数（四半期別）</h2>
+                                    <p class="card-sub">折れ線：平均値 ／ 棒：取引件数。グラフにカーソルを合わせると詳細を表示します。</p>
+                                </div>
+                                <div class="seg" role="tablist" aria-label="表示指標">
+                                    <button type="button" class="seg-btn" role="tab" data-metric="price" aria-selected="true">平均価格</button>
+                                    <button type="button" class="seg-btn" role="tab" data-metric="tsubo" aria-selected="false">坪単価</button>
+                                </div>
+                            </div>
+                            <div class="chart-box"><canvas aria-label="価格推移グラフ" role="img"></canvas></div>
+                        </div>
+
+                        <aside class="card" aria-labelledby="filter-title">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                                <h2 class="card-title" id="filter-title" style="margin:0;">条件で絞り込む</h2>
+                                <button type="button" class="chip" data-reset style="font-size:0.78rem;">リセット</button>
+                            </div>
+                            <div class="filters">
+                                {(initialType !== 'land' || showMunicipality) && (
+                                    <div data-filter-group="age" hidden={initialType === 'land' ? true : undefined}>
+                                        <div class="filter-group-label">築年数</div>
+                                        <div class="chips">{ageChips.map((c) => <button type="button" class="chip" data-filter={c.filter} data-value={c.value} aria-pressed={String(c.value === '')}>{c.label}</button>)}</div>
+                                    </div>
+                                )}
+                                {(initialType === 'mansion' || showMunicipality) && (
+                                    <div data-filter-group="plan" hidden={initialType !== 'mansion' ? true : undefined}>
+                                        <div class="filter-group-label">間取り</div>
+                                        <div class="chips">{planChips.map((c) => <button type="button" class="chip" data-filter={c.filter} data-value={c.value} aria-pressed={String(c.value === '')}>{c.label}</button>)}</div>
+                                    </div>
+                                )}
+                                <div data-filter-group="area">
+                                    <div class="filter-group-label">面積</div>
+                                    <div class="chips">{areaChips.map((c) => <button type="button" class="chip" data-filter={c.filter} data-value={c.value} aria-pressed={String(c.value === '')}>{c.label}</button>)}</div>
+                                </div>
+                                {(initialType === 'house' || showMunicipality) && (
+                                    <div data-filter-group="struct" hidden={initialType !== 'house' ? true : undefined}>
+                                        <div class="filter-group-label">構造</div>
+                                        <div class="chips">{structChips.map((c) => <button type="button" class="chip" data-filter={c.filter} data-value={c.value} aria-pressed={String(c.value === '')}>{c.label}</button>)}</div>
+                                    </div>
+                                )}
+                                <div class="filter-result" data-filter-result aria-live="polite">
+                                    該当 <b class="num">{fmtInt(currentTx?.rows?.length || 0)}</b> 件（直近 {fmtInt(currentTx?.rows?.length || 0)} 件中）
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </section>
+
+                <!-- 直近の取引事例一覧 -->
+                <section class="section" aria-labelledby="tx-title">
+                    <div class="card">
+                        <div class="section-head">
+                            <div>
+                                <h2 class="card-title" id="tx-title">直近の取引事例一覧（{currentTypeLabel}）</h2>
+                                <p class="card-sub">上の絞り込み条件が反映されます。地区名をクリックすると地区別の詳細ページへ移動します。</p>
+                            </div>
+                            <span class="badge info">国土交通省 不動産情報ライブラリ</span>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="data-table responsive">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">取引時期</th>
+                                        <th scope="col">所在地</th>
+                                        <th class="r" scope="col">取引価格</th>
+                                        <th class="r" scope="col">{isMansion ? '専有面積' : '土地面積'}</th>
+                                        <th class="r" scope="col">坪単価</th>
+                                        {isMansion ? <th scope="col">間取り</th> : !isLand ? <th class="r" scope="col">延床面積</th> : null}
+                                        {!isLand && (
+                                            <>
+                                                <th class="r" scope="col">建築年</th>
+                                                <th scope="col">構造</th>
+                                            </>
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {initialRows.map((r: any) => {
+                                        const tsubo = r.pr > 0 && r.a ? (r.pr / r.a) * TSUBO : null;
+                                        const loc = showMunicipality ? `${r.pf || ''} ${r.mu || ''}`.trim() : '';
+                                        const age = r.by ? `（築${DATA_YEAR - r.by}年）` : '';
+                                        return (
+                                            <tr>
+                                                <td data-label="取引時期" class="num">{r.p}</td>
+                                                <td data-label="所在地" class="cell-wide">
+                                                    {loc && <><span class="muted">{loc}</span> </>}
+                                                    {r.d ? (
+                                                        r.dc ? <a href={`/pref${String(r.mc).slice(0, 2)}/${r.mc}/${r.dc}/${initialType}`}>{r.d}</a> : r.d
+                                                    ) : <span class="muted">—</span>}
+                                                </td>
+                                                <td data-label="取引価格" class="r strong num">{r.pr > 0 ? `${manInt(r.pr)} 万円` : '—'}</td>
+                                                <td data-label={isMansion ? '専有面積' : '土地面積'} class="r num">{r.a ? `${fmtInt(r.a)} ㎡` : '—'}</td>
+                                                <td data-label="坪単価" class="r num">{tsubo ? `${man1(tsubo)} 万円` : '—'}</td>
+                                                {isMansion ? (
+                                                    <td data-label="間取り">{r.fp || '—'}</td>
+                                                ) : !isLand ? (
+                                                    <td data-label="延床面積" class="r num">{r.fa ? `${fmtInt(r.fa)} ㎡` : '—'}</td>
+                                                ) : null}
+                                                {!isLand && (
+                                                    <>
+                                                        <td data-label="建築年" class="r num">{r.by ? <>{r.by}年<span class="muted">{age}</span></> : '—'}</td>
+                                                        <td data-label="構造">{r.st || '—'}</td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                            <div class="table-empty" data-table-empty hidden={initialRows.length > 0 ? true : undefined}>条件に一致する取引事例がありません。</div>
+                        </div>
+                        <div class="table-foot">
+                            <span data-table-count class="num">{fmtInt(initialRows.length)} / {fmtInt(currentTx?.rows?.length || 0)} 件を表示</span>
+                            <button type="button" class="btn btn-ghost" data-more style="height:38px;" hidden={(currentTx?.rows?.length || 0) <= 20 ? true : undefined}>さらに20件表示</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </>
+    )}
+
+    <!-- ==================== 2. 地価種別ビュー (路線価 / 公示価格 / 基準地価) ==================== -->
+    {isLandPriceInitial && (
+        <div data-view="land">
+
+            <!-- -------------------- 2-A. 路線価ビュー (/rosenka) -------------------- -->
+            {initialType === 'rosenka' && (
+                <div data-lp-type="rosenka">
+                    <section class="section" aria-labelledby="rosenka-title">
+                        <div class="section-head">
+                            <div>
+                                <h2 class="section-title" id="rosenka-title">{areaName}の路線価（相続税路線価）相場</h2>
+                                <p class="section-sub">国税庁が公表する道路（路線）に面する宅地の価格基準（毎年1月1日時点・地価公示の約80%水準）</p>
+                            </div>
+                            <span class="badge info">国税庁 財産評価基準</span>
+                        </div>
+
+                        <div class="kpi-grid">
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                                    平均路線価（推計）
+                                </div>
+                                <div class="kpi-value">{man1(ros.avgPrice)}<span class="kpi-unit">万円/㎡</span></div>
+                                <div class="kpi-note">公示価格 × 80% で推計</div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+                                    平均坪単価（推計）
+                                </div>
+                                <div class="kpi-value">{man1(ros.avgTsubo)}<span class="kpi-unit">万円/坪</span></div>
+                                <div class="kpi-note">1坪 = 3.30578 ㎡</div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+                                    実勢相場目安（坪単価）
+                                </div>
+                                <div class="kpi-value">{man1(ros.realMarketEstimateTsubo)}<span class="kpi-unit">万円/坪</span></div>
+                                <div class="kpi-note">路線価 ÷ 0.8 × 1.15 倍換算</div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+                                    評価水準
+                                </div>
+                                <div class="kpi-value">約 80<span class="kpi-unit">%</span></div>
+                                <div class="kpi-note">地価公示（100%）に対する割合</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 用途区分別の路線価相場 -->
+                    {ros.divisions && ros.divisions.length > 0 && (
+                        <section class="section" aria-labelledby="rosenka-division-title">
+                            <div class="card">
+                                <div class="section-head" style="margin-bottom:14px;">
+                                    <div>
+                                        <h3 class="card-title" id="rosenka-division-title">{areaName}の用途区分別 路線価相場</h3>
+                                        <p class="card-sub">住宅地・商業地・工業地などの用途区分ごとの平均路線価（㎡単価・坪単価）および調査地点数</p>
+                                    </div>
+                                    <span class="badge info">{ros.year}年 公示地価×80%推計</span>
+                                </div>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>用途区分</th>
+                                                <th class="r">平均路線価（㎡）</th>
+                                                <th class="r">平均坪単価</th>
+                                                <th class="r">実勢相場目安（坪）</th>
+                                                <th class="r">元公示地価（㎡）</th>
+                                                <th class="r">前年比変動率</th>
+                                                <th class="r">調査地点数</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {ros.divisions.map((d: any) => (
+                                                <tr>
+                                                    <td class="strong">
+                                                        <span class="badge neutral" style="font-size:0.8rem; font-weight:700;">{d.name}</span>
+                                                    </td>
+                                                    <td class="r strong text-accent">{man1(d.avgPrice)} 万円</td>
+                                                    <td class="r num strong">{man1(d.avgTsubo)} 万円</td>
+                                                    <td class="r num">{man1(d.realMarketEstimateTsubo)} 万円</td>
+                                                    <td class="r num text-muted">{man1(d.officialPrice)} 万円</td>
+                                                    <td class={`r delta ${dcls(d.fluctuationRate)}`}>{pct(d.fluctuationRate)}</td>
+                                                    <td class="r num">{d.count.toLocaleString()} 地点</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    <!-- 路線価シミュレーション & 4大公的価格比較 -->
+                    <section class="section">
+                        <div class="grid-2">
+                            <div class="card">
+                                <h3 class="card-title" style="margin-bottom:12px;">敷地面積別の相続税評価額の目安</h3>
+                                <p class="card-sub" style="margin-bottom:16px;">前面道路が平均路線価（{man1(ros.avgPrice)} 万円/㎡）の場合の評価額試算（補正率1.0）</p>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>敷地規模</th>
+                                                <th class="r">面積</th>
+                                                <th class="r">相続税評価額の目安</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(ros.simulations || []).map((sim: any) => (
+                                                <tr>
+                                                    <td class="strong">{sim.label}</td>
+                                                    <td class="r">{sim.area} ㎡（約{sim.tsubo}坪）</td>
+                                                    <td class="r strong text-accent">{manInt(sim.price)} 万円</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p class="kpi-note" style="margin-top:12px;">※奥行価格補正や不整形地補正、小規模宅地等の特例（最大80%減額）は加味していません。</p>
+                            </div>
+
+                            <div class="card">
+                                <h3 class="card-title" style="margin-bottom:12px;">不動産の主要4価格（一物四価）と目安比率</h3>
+                                <p class="card-sub" style="margin-bottom:16px;">実勢価格・公示価格・路線価・固定資産税評価額の関係</p>
+                                <div class="price-ratios">
+                                    <div class="stat-row">
+                                        <span class="k"><b>実勢価格（時価）</b><br><small class="muted">実際の市場売買価格</small></span>
+                                        <span class="v"><b>約 110〜120%</b><br><small class="muted">（平均約 {man1(ros.realMarketEstimateTsubo)} 万円/坪）</small></span>
+                                    </div>
+                                    <div class="stat-row">
+                                        <span class="k"><b>公示地価（基準価格）</b><br><small class="muted">国交省公表の適正価格</small></span>
+                                        <span class="v"><b>100%（基準）</b><br><small class="muted">（平均 {man1(off.avgTsubo)} 万円/坪）</small></span>
+                                    </div>
+                                    <div class="stat-row" style="background:var(--accent-50); padding:8px 10px; border-radius:6px;">
+                                        <span class="k"><b>相続税路線価</b><br><small class="muted">国税庁の相続・贈与税基準</small></span>
+                                        <span class="v"><b>約 80%</b><br><small class="muted">（平均 {man1(ros.avgTsubo)} 万円/坪）</small></span>
+                                    </div>
+                                    <div class="stat-row">
+                                        <span class="k"><b>固定資産税評価額</b><br><small class="muted">固定資産税・都市計画税基準</small></span>
+                                        <span class="v"><b>約 70%</b><br><small class="muted">（3年に1度見直し）</small></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 相続税・贈与税の税額計算シミュレーション -->
+                    <TaxSimulator
+                        areaName={areaName}
+                        avgRosenkaPrice={ros.avgPrice}
+                        points={points}
+                    />
+
+                    <!-- 主要地点の路線価一覧 -->
+                    {points.length > 0 && (
+                        <section class="section" aria-labelledby="rosenka-table-title">
+                            <div class="card">
+                                <div class="section-head">
+                                    <div>
+                                        <h3 class="card-title" id="rosenka-table-title">{areaName}の主要標準地における路線価目安一覧</h3>
+                                        <p class="card-sub">国土交通省 標準地データから算出した推定路線価（公示価格 × 80%）</p>
+                                    </div>
+                                </div>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="r">順位</th>
+                                                <th>所在地</th>
+                                                <th>用途区分</th>
+                                                <th class="r">推定路線価（㎡）</th>
+                                                <th class="r">推定坪単価</th>
+                                                <th class="r">元公示地価</th>
+                                                <th class="r">借地権割合目安</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {points.slice(0, 25).map((pt: any) => (
+                                                <tr>
+                                                    <td class="r muted">{pt.rank}</td>
+                                                    <td class="strong">{pt.address}</td>
+                                                    <td><span class={`badge ${pt.division === '商業地' ? 'info' : 'neutral'}`}>{pt.division}</span></td>
+                                                    <td class="r strong">{man1(pt.rosenkaPrice)} 万円</td>
+                                                    <td class="r">{man1(pt.rosenkaTsubo)} 万円</td>
+                                                    <td class="r muted">{man1(pt.officialPrice)} 万円</td>
+                                                    <td class="r">{pt.division === '商業地' ? '70% (C)' : '60% (D)'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    <!-- 路線価の解説コラム -->
+                    <section class="section">
+                        <article class="card card-lg">
+                            <h3 class="card-title" style="font-size:1.15rem; margin-bottom:14px;">路線価（相続税路線価）とは？特徴と計算方法</h3>
+                            <div class="prose">
+                                <p>
+                                    <b>路線価（相続税路線価）</b>は、国税庁が毎年7月上旬に公表する、道路（路線）に面する標準的な宅地1㎡あたりの価格です。
+                                    毎年1月1日時点を評価基準日としており、相続税や贈与税を算出する際の土地評価額の基礎として広く用いられています。
+                                </p>
+                                <p>
+                                    路線価は国土交通省が発表する<b>地価公示価格の約80%</b>を目安に設定されています。
+                                    そのため、路線価を 0.8 で割り戻すことで公示地価水準を推定でき、さらに市場流通性（1.1〜1.2倍）を加味することで、
+                                    実際の<b>売買実勢価格の目安</b>を把握することができます。
+                                </p>
+                                <p>
+                                    ※正確な路線価図記号（千円単位の数字と借地権割合記号A〜G）や個別の補正計算については、国税庁の「財産評価基準書 路線価図・評価倍率表」をご参照ください。
+                                </p>
+                            </div>
+                        </article>
+                    </section>
+                </div>
+            )}
+
+            <!-- -------------------- 2-B. 公示価格ビュー (/official) -------------------- -->
+            {initialType === 'official' && (
+                <div data-lp-type="official">
+                    <section class="section" aria-labelledby="official-title">
+                        <div class="section-head">
+                            <div>
+                                <h2 class="section-title" id="official-title">{areaName}の地価公示（公示価格）相場</h2>
+                                <p class="section-sub">国土交通省 土地鑑定委員会が判定・公表する標準地の価格指標（毎年1月1日時点・3月下旬公表）</p>
+                            </div>
+                            <span class="badge info">国土交通省 地価公示</span>
+                        </div>
+
+                        <div class="kpi-grid">
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                                    平均公示価格（全用途）
+                                </div>
+                                <div class="kpi-value">{man1(off.avgPrice)}<span class="kpi-unit">万円/㎡</span></div>
+                                <div class="kpi-note">1㎡あたりの平均正常価格</div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+                                    平均坪単価
+                                </div>
+                                <div class="kpi-value">{man1(off.avgTsubo)}<span class="kpi-unit">万円/坪</span></div>
+                                <div class="kpi-note">1坪 = 3.30578 ㎡</div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg></span>
+                                    前年比変動率
+                                </div>
+                                <div class={`kpi-value delta ${dcls(off.avgFluctuation)}`}>{pct(off.avgFluctuation)}</div>
+                                <div class="kpi-note">
+                                    <span class={`badge ${off.avgFluctuation > 0 ? 'up' : off.avgFluctuation < 0 ? 'down' : 'neutral'}`}>
+                                        {off.avgFluctuation > 0 ? '▲ 上昇' : off.avgFluctuation < 0 ? '▼ 下落' : '横ばい'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+                                    調査地点数
+                                </div>
+                                <div class="kpi-value">{off.count ? off.count.toLocaleString() : '—'}<span class="kpi-unit">地点</span></div>
+                                <div class="kpi-note">標準地・基準地（全用途）合計</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 用途区分別 & 実勢乖離 -->
+                    <section class="section">
+                        <div class="grid-3">
+                            <div class="card">
+                                <div class="kpi-label">住宅地 平均</div>
+                                {off.res ? (
+                                    <>
+                                        <div class="kpi-value">{man1(off.res.avgPrice)}<span class="kpi-unit">万円/㎡</span></div>
+                                        <div class="kpi-note">坪単価 <b class="num">{man1(off.res.avgTsubo)} 万円</b>　<span class={`delta ${dcls(off.res.avgFluctuation)}`}>{pct(off.res.avgFluctuation)}</span></div>
+                                    </>
+                                ) : <p class="kpi-note" style="margin-top:12px;">データなし</p>}
+                            </div>
+
+                            <div class="card">
+                                <div class="kpi-label">商業地 平均</div>
+                                {off.com ? (
+                                    <>
+                                        <div class="kpi-value">{man1(off.com.avgPrice)}<span class="kpi-unit">万円/㎡</span></div>
+                                        <div class="kpi-note">坪単価 <b class="num">{man1(off.com.avgTsubo)} 万円</b>　<span class={`delta ${dcls(off.com.avgFluctuation)}`}>{pct(off.com.avgFluctuation)}</span></div>
+                                    </>
+                                ) : <p class="kpi-note" style="margin-top:12px;">データなし</p>}
+                            </div>
+
+                            <div class="card" style="background:var(--accent-50); border-color:#BAE6FD;">
+                                <div class="kpi-label">実勢土地価格 vs 地価公示</div>
+                                {off.divergence != null ? (
+                                    <>
+                                        <div class={`kpi-value delta ${dcls(off.divergence)}`}>{pct(off.divergence)}</div>
+                                        <div class="kpi-note">実勢取引平均単価が地価公示より{off.divergence >= 0 ? '高い' : '低い'}水準</div>
+                                    </>
+                                ) : (
+                                    <p class="kpi-note" style="margin-top:12px;">取引データと比較可能になり次第表示</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {off.maxPoint && off.minPoint && (
+                            <div class="callout" style="margin-top:16px;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-6-5.5-6-11a6 6 0 1 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></svg>
+                                <div>
+                                    <b>最高価格標準地：</b>{off.maxPoint.address}（<span class="num">{man1(off.maxPoint.price)}</span> 万円/㎡・坪単価 <span class="num">{man1(off.maxPoint.tsubo)}</span> 万円）<br>
+                                    <b>最低価格標準地：</b>{off.minPoint.address}（<span class="num">{man1(off.minPoint.price)}</span> 万円/㎡・坪単価 <span class="num">{man1(off.minPoint.tsubo)}</span> 万円）
+                                </div>
+                            </div>
+                        )}
+                    </section>
+
+                    <!-- 地価公示 標準地ランキング一覧 -->
+                    {points.length > 0 && (
+                        <section class="section" aria-labelledby="official-table-title">
+                            <div class="card">
+                                <div class="section-head">
+                                    <div>
+                                        <h3 class="card-title" id="official-table-title">{areaName}の地価公示 標準地点一覧（上位地点）</h3>
+                                        <p class="card-sub">国土交通省が公表する標準地価格と前年比変動率</p>
+                                    </div>
+                                </div>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="r">順位</th>
+                                                <th>所在地</th>
+                                                <th>用途区分</th>
+                                                <th class="r">公示価格（㎡）</th>
+                                                <th class="r">坪単価</th>
+                                                <th class="r">前年比変動</th>
+                                                <th class="r">地積</th>
+                                                <th class="r">建蔽率 / 容積率</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {points.slice(0, 30).map((pt: any) => (
+                                                <tr>
+                                                    <td class="r muted">{pt.rank}</td>
+                                                    <td class="strong">{pt.address}</td>
+                                                    <td><span class={`badge ${pt.division === '商業地' ? 'info' : 'neutral'}`}>{pt.division}</span></td>
+                                                    <td class="r strong">{man1(pt.officialPrice)} 万円</td>
+                                                    <td class="r">{man1(pt.officialTsubo)} 万円</td>
+                                                    <td class="r"><span class={`delta ${dcls(pt.fluctuationRate)}`}>{pct(pt.fluctuationRate)}</span></td>
+                                                    <td class="r">{pt.area ? `${pt.area.toLocaleString()} ㎡` : '—'}</td>
+                                                    <td class="r muted">{pt.bcr ?? '—'}% / {pt.far ?? '—'}%</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    <!-- 地価公示の解説コラム -->
+                    <section class="section">
+                        <article class="card card-lg">
+                            <h3 class="card-title" style="font-size:1.15rem; margin-bottom:14px;">地価公示（公示地価）とは？公的指標の重要性</h3>
+                            <div class="prose">
+                                <p>
+                                    <b>地価公示（公示地価）</b>は、地価公示法に基づき国土交通省の土地鑑定委員会が毎年1月1日時点の標準地を選定し、正常な価格を判定・公示する公的価格です（毎年3月下旬公表）。
+                                </p>
+                                <p>
+                                    一般の土地取引において価格決定の指標となるだけでなく、不動産鑑定士による鑑定評価の規準や、国や自治体による公共用地の取得価格算定、金融機関の担保評価など、不動産経済全般の物差しとして幅広く利用されています。
+                                </p>
+                            </div>
+                        </article>
+                    </section>
+                </div>
+            )}
+
+            <!-- -------------------- 2-C. 基準地価ビュー (/standard) -------------------- -->
+            {initialType === 'standard' && (
+                <div data-lp-type="standard">
+                    <section class="section" aria-labelledby="standard-title">
+                        <div class="section-head">
+                            <div>
+                                <h2 class="section-title" id="standard-title">{areaName}の基準地価（都道府県地価調査）相場</h2>
+                                <p class="section-sub">各都道府県が判定・公表する基準地の標準価格（毎年7月1日時点・9月下旬公表）</p>
+                            </div>
+                            <span class="badge info">都道府県地価調査</span>
+                        </div>
+
+                        <div class="kpi-grid">
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                                    平均基準地価（推計）
+                                </div>
+                                <div class="kpi-value">{man1(std.avgPrice)}<span class="kpi-unit">万円/㎡</span></div>
+                                <div class="kpi-note">7月1日時点の価格水準</div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+                                    平均坪単価
+                                </div>
+                                <div class="kpi-value">{man1(std.avgTsubo)}<span class="kpi-unit">万円/坪</span></div>
+                                <div class="kpi-note">1坪 = 3.30578 ㎡</div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg></span>
+                                    年間地価トレンド
+                                </div>
+                                <div class={`kpi-value delta ${dcls(std.trendRate)}`}>{pct(std.trendRate)}</div>
+                                <div class="kpi-note">
+                                    <span class={`badge ${std.trendRate > 0 ? 'up' : std.trendRate < 0 ? 'down' : 'neutral'}`}>
+                                        {std.trendRate > 0 ? '▲ 上昇傾向' : std.trendRate < 0 ? '▼ 下落傾向' : '横ばい'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card kpi">
+                                <div class="kpi-label">
+                                    <span class="kpi-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1 2-2h11"/></svg></span>
+                                    調査主体
+                                </div>
+                                <div class="kpi-value" style="font-size:1.4rem;">各都道府県</div>
+                                <div class="kpi-note">地価公示を補完する半年時点の調査</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 用途区分別動向 & 地価公示との関係 -->
+                    <section class="section">
+                        <div class="grid-2">
+                            <div class="card">
+                                <h3 class="card-title" style="margin-bottom:12px;">用途区分別の基準地価水準</h3>
+                                <p class="card-sub" style="margin-bottom:16px;">住宅地および商業地の推計水準</p>
+                                <div class="stat-row">
+                                    <span class="k"><b>住宅地 平均</b></span>
+                                    <span class="v"><b>{man1(std.res ? std.res.avgPrice : null)} 万円/㎡</b>（坪単価 {man1(std.res ? std.res.avgTsubo : null)} 万円）</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="k"><b>商業地 平均</b></span>
+                                    <span class="v"><b>{man1(std.com ? std.com.avgPrice : null)} 万円/㎡</b>（坪単価 {man1(std.com ? std.com.avgTsubo : null)} 万円）</span>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <h3 class="card-title" style="margin-bottom:12px;">地価公示（1/1）と基準地価（7/1）の違い</h3>
+                                <p class="card-sub" style="margin-bottom:16px;">年2回の公的調査による地価動向の把握</p>
+                                <div class="stat-row">
+                                    <span class="k"><b>調査時点</b></span>
+                                    <span class="v">地価公示：1月1日 ／ 基準地価：<b>7月1日</b></span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="k"><b>調査主体</b></span>
+                                    <span class="v">地価公示：国交省 ／ 基準地価：<b>都道府県</b></span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="k"><b>調査区域</b></span>
+                                    <span class="v">都市計画区域外の林地・山林等も広く網羅</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 基準地一覧テーブル -->
+                    {points.length > 0 && (
+                        <section class="section" aria-labelledby="standard-table-title">
+                            <div class="card">
+                                <div class="section-head">
+                                    <div>
+                                        <h3 class="card-title" id="standard-table-title">{areaName}の基準地点一覧</h3>
+                                        <p class="card-sub">公的鑑定基準地における推計価格一覧</p>
+                                    </div>
+                                </div>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="r">順位</th>
+                                                <th>所在地</th>
+                                                <th>用途区分</th>
+                                                <th class="r">推計基準地価（㎡）</th>
+                                                <th class="r">推計坪単価</th>
+                                                <th class="r">変動トレンド</th>
+                                                <th class="r">地積</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {points.slice(0, 25).map((pt: any) => (
+                                                <tr>
+                                                    <td class="r muted">{pt.rank}</td>
+                                                    <td class="strong">{pt.address}</td>
+                                                    <td><span class={`badge ${pt.division === '商業地' ? 'info' : 'neutral'}`}>{pt.division}</span></td>
+                                                    <td class="r strong">{man1(pt.standardPrice)} 万円</td>
+                                                    <td class="r">{man1(pt.standardTsubo)} 万円</td>
+                                                    <td class="r"><span class={`delta ${dcls(pt.fluctuationRate)}`}>{pct(pt.fluctuationRate)}</span></td>
+                                                    <td class="r">{pt.area ? `${pt.area.toLocaleString()} ㎡` : '—'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    <!-- 基準地価の解説コラム -->
+                    <section class="section">
+                        <article class="card card-lg">
+                            <h3 class="card-title" style="font-size:1.15rem; margin-bottom:14px;">基準地価（都道府県地価調査）とは？</h3>
+                            <div class="prose">
+                                <p>
+                                    <b>都道府県地価調査（基準地価）</b>は、国土利用計画法に基づき各都道府県が主体となって毎年7月1日時点の基準地価格を判定する調査です（毎年9月下旬公表）。
+                                </p>
+                                <p>
+                                    国が実施する1月1日時点の「地価公示」とあわせて年2回実施されることで、半年ごとの地価変動の動向をタイムリーに捉えることができます。
+                                    また、地価公示が主に都市計画区域内を対象とするのに対し、都道府県地価調査は都市計画区域外の住宅地や林地等も幅広く対象としているのが大きな特徴です。
+                                </p>
+                            </div>
+                        </article>
+                    </section>
+                </div>
+            )}
+
+        </div>
+    )}
+</div>
+
+{!isLandPriceInitial && <script is:inline src="/assets/js/dashboard.js" defer></script>}

@@ -31,7 +31,7 @@ const PREFECTURES = [
 ];
 
 // 取得したい年を配列で指定（過去の分も一気に取得可能）
-const TARGET_YEARS = ['2023'];
+const TARGET_YEARS = ['2022'];
 
 async function fetchWithRetry(url, retries = 3) {
     for (let i = 0; i < retries; i++) {
@@ -153,6 +153,15 @@ async function main() {
     } // city loop
 
     console.log('✅ MySQLへのデータの取得・保存が完了しました！');
+
+    try {
+        console.log('\n🗺️ サイトマップを自動更新中...');
+        const { generateSitemaps } = await import('./generateSitemap.js');
+        await generateSitemaps();
+    } catch (e) {
+        console.warn('⚠️ サイトマップの自動更新をスキップしました:', e.message);
+    }
+
     await connection.end();
 }
 

@@ -1,0 +1,634 @@
+---
+// src/components/AreaOverviewDashboard.astro
+// 総合トップページ（ピラーページ：/prefXX/XXXXX/ および /prefXX/XXXXX/XXXXXXXXX/）専用ダッシュボード
+import { generateAreaSummaryHtml } from '../lib/areaSummary.js';
+
+export interface Props {
+    areaName: string;
+    prefName: string;
+    cityName: string;
+    districtName?: string;
+    basePath: string;
+    stats: { types: Record<string, any> };
+    landPrices: any;
+    fluctuation: number | null;
+    qualitativeReport?: { text: string; charCount: number } | null;
+    fallbackReport?: { title: string; paragraphs: string[]; charCount: number } | null;
+    faqs?: Array<{ question: string; answer: string }>;
+}
+
+const {
+    areaName,
+    prefName,
+    cityName,
+    districtName = '',
+    basePath,
+    stats,
+    landPrices,
+    fluctuation,
+    qualitativeReport = null,
+    fallbackReport = null,
+    faqs = [],
+} = Astro.props;
+
+const TSUBO = 3.30578;
+const cleanBase = basePath.replace(/\/+$/, '');
+
+const txTypes = stats?.types || {};
+const mansion = txTypes.mansion || { count: 0, avgPrice: null, avgSqm: null, avgArea: null, rows: [] };
+const house = txTypes.house || { count: 0, avgPrice: null, avgSqm: null, avgArea: null, rows: [] };
+const land = txTypes.land || { count: 0, avgPrice: null, avgSqm: null, avgArea: null, rows: [] };
+
+const lp = landPrices || {};
+const off = lp.official || {};
+const std = lp.standard || {};
+const ros = lp.rosenka || {};
+const yearNum = Number(lp.year || ros.year || off.year || 2026);
+const fluc = off.avgFluctuation ?? fluctuation;
+const divergence = off.divergence ?? (land.avgSqm && off.avgPrice ? (land.avgSqm / off.avgPrice - 1) * 100 : null);
+
+const man1 = (yen: number | null | undefined) =>
+    yen == null || !isFinite(yen)
+        ? '—'
+        : (yen / 10000).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const manInt = (yen: number | null | undefined) =>
+    yen == null || !isFinite(yen) ? '—' : Math.round(yen / 10000).toLocaleString('ja-JP');
+const pct = (v: number | null | undefined) =>
+    v == null || !isFinite(v) ? '—' : `${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%`;
+const dcls = (v: number | null | undefined) => (v == null ? 'flat' : v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
+
+// ① ファーストビュー直下の自然言語サマリー（200〜300文字）
+const summaryHtml = generateAreaSummaryHtml({
+    pref: prefName,
+    city: cityName,
+    district: districtName,
+    currentType: 'index',
+    stats,
+    landPrices,
+    fluctuation: fluc,
+});
+
+// ④ 全種別横断の最新取引事例（マンション・戸建て・土地から最新10件を統合ソート）
+const taggedRows = [
+    ...(mansion.rows || []).slice(0, 10).map((r: any) => ({ ...r, typeKey: 'mansion', typeLabel: '中古マンション', badgeClass: 'info' })),
+    ...(house.rows || []).slice(0, 10).map((r: any) => ({ ...r, typeKey: 'house', typeLabel: '戸建て', badgeClass: 'neutral' })),
+    ...(land.rows || []).slice(0, 10).map((r: any) => ({ ...r, typeKey: 'land', typeLabel: '土地', badgeClass: 'up' })),
+];
+taggedRows.sort((a, b) => String(b.p || '').localeCompare(String(a.p || '')));
+const recentCrossRows = taggedRows.slice(0, 10);
+
+// 固定資産税評価額目安（公示地価 × 70%）
+const fixedTaxSqm = off.avgPrice ? Math.round(off.avgPrice * 0.7) : null;
+const fixedTaxTsubo = fixedTaxSqm ? Math.round(fixedTaxSqm * TSUBO) : null;
+---
+
+<div class="overview-pillar">
+    <!-- ① ファーストビュー直下 自然言語サマリー（200〜300文字） -->
+    {summaryHtml && (
+        <p class="area-summary-text" set:html={summaryHtml} />
+    )}
+
+    <!-- ② ひと目でわかる「不動産相場・地価マトリクス」（KPI一覧 6カード） -->
+    <section class="section" aria-labelledby="matrix-title">
+        <div class="section-head">
+            <div>
+                <h2 class="section-title" id="matrix-title">{areaName}の不動産相場・地価マトリクス</h2>
+                <p class="section-sub">実勢取引価格（マンション・戸建て・土地）と公的地価指標（路線価・公示価格・基準地価）の全体比較</p>
+            </div>
+            <span class="badge info">{yearNum}年最新集計</span>
+        </div>
+
+        <div class="matrix-grid">
+            <!-- 1. 中古マンション -->
+            <div class="card matrix-card">
+                <div class="matrix-card-top">
+                    <span class="matrix-tag tx">実勢取引</span>
+                    <span class="matrix-count">取引 <b class="num">{mansion.count.toLocaleString()}</b> 件</span>
+                </div>
+                <h3 class="matrix-title">中古マンション</h3>
+                <div class="matrix-main-val">
+                    {mansion.count > 0 && mansion.avgPrice ? (
+                        <>平均 <span class="num">{manInt(mansion.avgPrice)}</span><span class="kpi-unit">万円</span></>
+                    ) : (
+                        <span class="muted" style="font-size:1.1rem;">成約データなし</span>
+                    )}
+                </div>
+                <div class="matrix-sub-val">
+                    坪単価 <b class="num">{mansion.avgSqm ? `${manInt(mansion.avgSqm * TSUBO)}万円` : '—'}</b>
+                    ／ 平均専有面積 <b class="num">{mansion.avgArea ? `${Math.round(mansion.avgArea)}㎡` : '—'}</b>
+                </div>
+                <a href={`${cleanBase}/mansion`} class="matrix-link">
+                    {areaName}のマンション相場を見る <span aria-hidden="true">→</span>
+                </a>
+            </div>
+
+            <!-- 2. 戸建て -->
+            <div class="card matrix-card">
+                <div class="matrix-card-top">
+                    <span class="matrix-tag tx">実勢取引</span>
+                    <span class="matrix-count">取引 <b class="num">{house.count.toLocaleString()}</b> 件</span>
+                </div>
+                <h3 class="matrix-title">戸建て（新築・中古）</h3>
+                <div class="matrix-main-val">
+                    {house.count > 0 && house.avgPrice ? (
+                        <>平均 <span class="num">{manInt(house.avgPrice)}</span><span class="kpi-unit">万円</span></>
+                    ) : (
+                        <span class="muted" style="font-size:1.1rem;">成約データなし</span>
+                    )}
+                </div>
+                <div class="matrix-sub-val">
+                    坪単価 <b class="num">{house.avgSqm ? `${manInt(house.avgSqm * TSUBO)}万円` : '—'}</b>
+                    ／ 平均土地面積 <b class="num">{house.avgArea ? `${Math.round(house.avgArea)}㎡` : '—'}</b>
+                </div>
+                <a href={`${cleanBase}/house`} class="matrix-link">
+                    {areaName}の戸建て相場を見る <span aria-hidden="true">→</span>
+                </a>
+            </div>
+
+            <!-- 3. 土地 -->
+            <div class="card matrix-card">
+                <div class="matrix-card-top">
+                    <span class="matrix-tag tx">実勢取引</span>
+                    <span class="matrix-count">取引 <b class="num">{land.count.toLocaleString()}</b> 件</span>
+                </div>
+                <h3 class="matrix-title">土地（宅地）</h3>
+                <div class="matrix-main-val">
+                    {land.count > 0 && land.avgSqm ? (
+                        <>坪単価 <span class="num">{manInt(land.avgSqm * TSUBO)}</span><span class="kpi-unit">万円</span></>
+                    ) : (
+                        <span class="muted" style="font-size:1.1rem;">成約データなし</span>
+                    )}
+                </div>
+                <div class="matrix-sub-val">
+                    平米単価 <b class="num">{land.avgSqm ? `${man1(land.avgSqm)}万円/㎡` : '—'}</b>
+                    ／ 平均取引額 <b class="num">{land.avgPrice ? `${manInt(land.avgPrice)}万円` : '—'}</b>
+                </div>
+                <a href={`${cleanBase}/land`} class="matrix-link">
+                    {areaName}の土地相場を見る <span aria-hidden="true">→</span>
+                </a>
+            </div>
+
+            <!-- 4. 路線価 -->
+            <div class="card matrix-card">
+                <div class="matrix-card-top">
+                    <span class="matrix-tag lp">公的指標（相続・贈与）</span>
+                    <span class={`delta ${dcls(fluc)}`} style="font-size:0.8rem; font-weight:700;">前年比 {pct(fluc)}</span>
+                </div>
+                <h3 class="matrix-title">路線価（相続税路線価）</h3>
+                <div class="matrix-main-val">
+                    {ros.avgPrice ? (
+                        <>推計 <span class="num">{man1(ros.avgPrice)}</span><span class="kpi-unit">万円/㎡</span></>
+                    ) : (
+                        <span class="muted" style="font-size:1.1rem;">データなし</span>
+                    )}
+                </div>
+                <div class="matrix-sub-val">
+                    坪単価 <b class="num">{ros.avgTsubo ? `${man1(ros.avgTsubo)}万円/坪` : '—'}</b>（地価公示の約80%水準）
+                </div>
+                <a href={`${cleanBase}/rosenka`} class="matrix-link">
+                    {areaName}の路線価・相続税試算を見る <span aria-hidden="true">→</span>
+                </a>
+            </div>
+
+            <!-- 5. 公示地価 -->
+            <div class="card matrix-card">
+                <div class="matrix-card-top">
+                    <span class="matrix-tag lp">公的指標（1月1日基準）</span>
+                    <span class="matrix-count">調査 <b class="num">{off.count ? off.count.toLocaleString() : 0}</b> 地点</span>
+                </div>
+                <h3 class="matrix-title">公示価格（地価公示）</h3>
+                <div class="matrix-main-val">
+                    {off.avgPrice ? (
+                        <>平均 <span class="num">{man1(off.avgPrice)}</span><span class="kpi-unit">万円/㎡</span></>
+                    ) : (
+                        <span class="muted" style="font-size:1.1rem;">データなし</span>
+                    )}
+                </div>
+                <div class="matrix-sub-val">
+                    坪単価 <b class="num">{off.avgTsubo ? `${man1(off.avgTsubo)}万円/坪` : '—'}</b>
+                    ／ 前年比 <span class={`delta ${dcls(fluc)}`}>{pct(fluc)}</span>
+                </div>
+                <a href={`${cleanBase}/official`} class="matrix-link">
+                    {areaName}の公示価格を見る <span aria-hidden="true">→</span>
+                </a>
+            </div>
+
+            <!-- 6. 基準地価 -->
+            <div class="card matrix-card">
+                <div class="matrix-card-top">
+                    <span class="matrix-tag lp">公的指標（7月1日基準）</span>
+                    <span class="matrix-count">都道府県地価調査</span>
+                </div>
+                <h3 class="matrix-title">基準地価</h3>
+                <div class="matrix-main-val">
+                    {std.avgPrice ? (
+                        <>推計 <span class="num">{man1(std.avgPrice)}</span><span class="kpi-unit">万円/㎡</span></>
+                    ) : (
+                        <span class="muted" style="font-size:1.1rem;">データなし</span>
+                    )}
+                </div>
+                <div class="matrix-sub-val">
+                    坪単価 <b class="num">{std.avgTsubo ? `${man1(std.avgTsubo)}万円/坪` : '—'}</b>
+                    ／ トレンド <span class={`delta ${dcls(std.trendRate)}`}>{pct(std.trendRate)}</span>
+                </div>
+                <a href={`${cleanBase}/standard`} class="matrix-link">
+                    {areaName}の基準地価を見る <span aria-hidden="true">→</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ③ 実勢価格 vs 公的価格の比較（一物四価ダイジェスト） -->
+    <section class="section" aria-labelledby="four-price-title">
+        <div class="card card-lg">
+            <div class="section-head" style="margin-bottom: 16px;">
+                <div>
+                    <h2 class="section-title" id="four-price-title">{areaName}の実勢価格 vs 公的価格の比較（一物四価ダイジェスト）</h2>
+                    <p class="section-sub">実際の市場売買価格（実勢価格）と公的評価額（公示地価・相続税路線価・固定資産税評価額）の水準比較</p>
+                </div>
+            </div>
+
+            <div class="grid-2" style="align-items: center;">
+                <div class="four-price-bars">
+                    <div class="fp-row">
+                        <div class="fp-head">
+                            <span><b>1. 実勢価格（実際の土地取引 / 時価）</b></span>
+                            <span class="strong text-accent">
+                                {land.avgSqm
+                                    ? `${man1(land.avgSqm * TSUBO)} 万円/坪（${man1(land.avgSqm)} 万円/㎡）`
+                                    : ros.realMarketEstimateTsubo
+                                      ? `推計 ${man1(ros.realMarketEstimateTsubo)} 万円/坪`
+                                      : '—'}
+                            </span>
+                        </div>
+                        <div class="fp-bar-track"><div class="fp-bar-fill is-market" style="width: 100%;"></div></div>
+                        <div class="fp-foot">実際の売買成約水準（公示地価の約110〜120%が一般的な目安）</div>
+                    </div>
+
+                    <div class="fp-row">
+                        <div class="fp-head">
+                            <span><b>2. 公示地価・基準地価（基準 100%）</b></span>
+                            <span class="strong">{off.avgTsubo ? `${man1(off.avgTsubo)} 万円/坪（${man1(off.avgPrice)} 万円/㎡）` : '—'}</span>
+                        </div>
+                        <div class="fp-bar-track"><div class="fp-bar-fill is-official" style="width: 86%;"></div></div>
+                        <div class="fp-foot">国土交通省・都道府県が公表する更地の適正価格（100%基準）</div>
+                    </div>
+
+                    <div class="fp-row">
+                        <div class="fp-head">
+                            <span><b>3. 相続税路線価（公示地価の約 80%）</b></span>
+                            <span class="strong">{ros.avgTsubo ? `${man1(ros.avgTsubo)} 万円/坪（${man1(ros.avgPrice)} 万円/㎡）` : '—'}</span>
+                        </div>
+                        <div class="fp-bar-track"><div class="fp-bar-fill is-rosenka" style="width: 69%;"></div></div>
+                        <div class="fp-foot">国税庁が定める相続税・贈与税の土地評価基準</div>
+                    </div>
+
+                    <div class="fp-row">
+                        <div class="fp-head">
+                            <span><b>4. 固定資産税評価額（公示地価の約 70%）</b></span>
+                            <span class="strong">{fixedTaxTsubo ? `${man1(fixedTaxTsubo)} 万円/坪（${man1(fixedTaxSqm)} 万円/㎡）` : '—'}</span>
+                        </div>
+                        <div class="fp-bar-track"><div class="fp-bar-fill is-fixed" style="width: 60%;"></div></div>
+                        <div class="fp-foot">市区町村が3年に1度算定する固定資産税・都市計画税・登録免許税の基準</div>
+                    </div>
+                </div>
+
+                <div class="fp-explanation">
+                    <h3 class="card-title" style="font-size: 1.02rem; margin-bottom: 10px;">
+                        {areaName}における実勢価格と公示地価の乖離分析
+                    </h3>
+                    <div class="prose" style="font-size: 0.92rem;">
+                        {land.count > 0 && land.avgSqm && off.avgPrice ? (
+                            <p>
+                                {prefName}{cityName}{districtName}における実際の土地（宅地）取引データ（<b class="num">{land.count.toLocaleString()}件</b>）の平均単価は
+                                <b>{man1(land.avgSqm)}万円/㎡（坪単価 {man1(land.avgSqm * TSUBO)}万円）</b>であり、{yearNum}年地価公示平均（<b>{man1(off.avgPrice)}万円/㎡</b>）に対する乖離率は
+                                <b class={`delta ${dcls(divergence)}`}>{pct(divergence)}</b>となっています。
+                            </p>
+                        ) : (
+                            <p>
+                                {prefName}{cityName}{districtName}の{yearNum}年地価公示平均は<b>{man1(off.avgPrice)}万円/㎡（坪単価 {man1(off.avgTsubo)}万円）</b>となっており、
+                                路線価からの理論換算による実勢取引目安は<b>坪単価 約{man1(ros.realMarketEstimateTsubo)}万円</b>水準です。
+                            </p>
+                        )}
+                        <p style="margin-top: 10px;">
+                            土地や戸建ての売却・購入を検討する際は、<a href={`${cleanBase}/official`}>公示価格</a>や<a href={`${cleanBase}/rosenka`}>相続税路線価</a>を物差しとしつつ、
+                            <a href={`${cleanBase}/land`}>土地の実勢取引事例</a>で近隣の成約坪単価を確認することで、妥当な価格判断が可能になります。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ④ 直近の最新取引事例速報（全種別横断・最新10件） -->
+    {recentCrossRows.length > 0 && (
+        <section class="section" aria-labelledby="recent-tx-title">
+            <div class="card">
+                <div class="section-head" style="margin-bottom: 14px;">
+                    <div>
+                        <h2 class="section-title" id="recent-tx-title">{areaName}の最新取引事例速報（全種別横断）</h2>
+                        <p class="section-sub">マンション・戸建て・土地の直近成約データ（最新{recentCrossRows.length}件）</p>
+                    </div>
+                    <span class="badge neutral">国土交通省 成約データ</span>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="data-table responsive">
+                        <thead>
+                            <tr>
+                                <th>種別</th>
+                                <th>取引時期</th>
+                                {!districtName && <th>町名</th>}
+                                <th class="r">取引価格</th>
+                                <th class="r">坪単価</th>
+                                <th class="r">面積</th>
+                                <th>間取り / 構造</th>
+                                <th class="r">建築年</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {recentCrossRows.map((r: any) => {
+                                const sqm = r.pr && r.a ? r.pr / r.a : null;
+                                const tsubo = sqm ? sqm * TSUBO : null;
+                                return (
+                                    <tr>
+                                        <td data-label="種別">
+                                            <a href={`${cleanBase}/${r.typeKey}`} class={`badge ${r.badgeClass}`} style="text-decoration:none;">
+                                                {r.typeLabel}
+                                            </a>
+                                        </td>
+                                        <td data-label="取引時期" class="muted">{r.p}</td>
+                                        {!districtName && (
+                                            <td data-label="町名" class="strong">
+                                                {r.dc ? <a href={`${cleanBase}/${r.dc}/`}>{r.d || '—'}</a> : (r.d || '—')}
+                                            </td>
+                                        )}
+                                        <td data-label="取引価格" class="r strong num">{manInt(r.pr)} 万円</td>
+                                        <td data-label="坪単価" class="r num">{tsubo ? `${man1(tsubo)} 万円` : '—'}</td>
+                                        <td data-label="面積" class="r num">{r.a ? `${r.a} ㎡` : '—'}</td>
+                                        <td data-label="間取り / 構造">{[r.fp, r.st].filter(Boolean).join(' / ') || '—'}</td>
+                                        <td data-label="建築年" class="r muted">{r.by ? `${r.by}年` : '—'}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="recent-tx-footer">
+                    <span>さらに詳しい取引事例や築年数・面積帯での絞り込みは各物件種別ページへ：</span>
+                    <div class="recent-tx-links">
+                        <a href={`${cleanBase}/mansion`}>中古マンション事例（{mansion.count.toLocaleString()}件）→</a>
+                        <a href={`${cleanBase}/house`}>戸建て事例（{house.count.toLocaleString()}件）→</a>
+                        <a href={`${cleanBase}/land`}>土地事例（{land.count.toLocaleString()}件）→</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    )}
+
+    <!-- ⑤ エリア市場分析レポート（住環境・地域特性・需要傾向） -->
+    {(qualitativeReport?.text || (fallbackReport && fallbackReport.paragraphs.length > 0)) && (
+        <section class="section" aria-labelledby="overview-report-title">
+            <article class="card card-lg">
+                <div class="section-head" style="margin-bottom: 14px;">
+                    <h2 class="card-title" id="overview-report-title" style="font-size: 1.15rem;">
+                        {areaName}の住環境・地域特性・不動産市場分析レポート
+                    </h2>
+                    <span class="badge info">
+                        エリア総合分析・約{(qualitativeReport?.charCount || fallbackReport?.charCount || 0).toLocaleString()}文字
+                    </span>
+                </div>
+                {qualitativeReport?.text ? (
+                    <div class="report-body">{qualitativeReport.text}</div>
+                ) : (
+                    <div class="prose">
+                        {fallbackReport?.paragraphs.map((p: string) => <p>{p}</p>)}
+                    </div>
+                )}
+            </article>
+        </section>
+    )}
+
+    <!-- ⑥ よくある質問（FAQセクション ＆ FAQPage構造化データ連動） -->
+    {faqs.length > 0 && (
+        <section class="section" aria-labelledby="faq-title">
+            <div class="card card-lg">
+                <div class="section-head" style="margin-bottom: 16px;">
+                    <div>
+                        <h2 class="section-title" id="faq-title">{areaName}の不動産相場・地価に関するよくある質問（FAQ）</h2>
+                        <p class="section-sub">マンション・戸建て・土地の売買相場や路線価・公示価格に関するQ&A</p>
+                    </div>
+                </div>
+                <div class="faq-list">
+                    {faqs.map((faq) => (
+                        <details class="faq-item" open>
+                            <summary class="faq-question">
+                                <span class="faq-q-badge">Q</span>
+                                <span>{faq.question}</span>
+                            </summary>
+                            <div class="faq-answer">
+                                <p>{faq.answer}</p>
+                            </div>
+                        </details>
+                    ))}
+                </div>
+            </div>
+        </section>
+    )}
+</div>
+
+<style>
+    .matrix-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+    .matrix-card {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 20px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .matrix-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    .matrix-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+    .matrix-tag {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 999px;
+    }
+    .matrix-tag.tx {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+    .matrix-tag.lp {
+        background: #f0fdf4;
+        color: #15803d;
+    }
+    .matrix-count {
+        font-size: 0.78rem;
+        color: var(--muted);
+    }
+    .matrix-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--ink);
+        margin: 0 0 8px;
+    }
+    .matrix-main-val {
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: var(--ink);
+        line-height: 1.2;
+        margin-bottom: 6px;
+    }
+    .matrix-sub-val {
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 14px;
+    }
+    .matrix-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 14px;
+        border-radius: 8px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--accent, #0284c7);
+        text-decoration: none;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .matrix-link:hover {
+        background: var(--accent-50, #f0f9ff);
+        border-color: var(--accent, #0284c7);
+    }
+    .four-price-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .fp-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .fp-head {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.88rem;
+        gap: 8px;
+    }
+    .fp-bar-track {
+        height: 10px;
+        background: #f1f5f9;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    .fp-bar-fill {
+        height: 100%;
+        border-radius: 999px;
+    }
+    .fp-bar-fill.is-market { background: #0284c7; }
+    .fp-bar-fill.is-official { background: #0ea5e9; }
+    .fp-bar-fill.is-rosenka { background: #38bdf8; }
+    .fp-bar-fill.is-fixed { background: #94a3b8; }
+    .fp-foot {
+        font-size: 0.75rem;
+        color: var(--muted);
+    }
+    .fp-explanation {
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px 20px;
+    }
+    .recent-tx-footer {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 0.86rem;
+        color: var(--muted);
+    }
+    .recent-tx-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-weight: 700;
+    }
+    .faq-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .faq-item {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #ffffff;
+        padding: 14px 18px;
+    }
+    .faq-question {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 0.96rem;
+        color: var(--ink);
+        cursor: pointer;
+        list-style: none;
+    }
+    .faq-question::-webkit-details-marker {
+        display: none;
+    }
+    .faq-q-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: var(--accent, #0284c7);
+        color: #ffffff;
+        font-size: 0.8rem;
+        font-weight: 800;
+        flex-shrink: 0;
+    }
+    .faq-answer {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--border);
+        font-size: 0.92rem;
+        line-height: 1.75;
+        color: var(--ink-2);
+    }
+    .faq-answer p {
+        margin: 0;
+    }
+    @media (max-width: 900px) {
+        .matrix-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    @media (max-width: 600px) {
+        .matrix-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

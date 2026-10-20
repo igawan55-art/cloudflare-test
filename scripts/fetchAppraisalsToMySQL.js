@@ -25,10 +25,16 @@ const PREFECTURES = [
     { id: '46', name: '鹿児島県' }, { id: '47', name: '沖縄県' }
 ];
 
-const TARGET_YEARS = ['2023'];
+const TARGET_YEARS = ['2022'];
 const DIVISIONS = [
     { code: '00', name: '住宅地' },
-    { code: '05', name: '商業地' }
+    { code: '03', name: '宅地見込地' },
+    { code: '05', name: '商業地' },
+    { code: '07', name: '準工業地' },
+    { code: '09', name: '工業地' },
+    { code: '10', name: '調整区域内宅地' },
+    { code: '13', name: '現況林地' },
+    { code: '20', name: '林地（都道府県地価調査）' }
 ];
 
 async function fetchWithRetry(url, retries = 3) {

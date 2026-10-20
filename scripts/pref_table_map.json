@@ -1,0 +1,378 @@
+{
+  "10": {
+    "prefCode": "10",
+    "prefName": "群馬県",
+    "popTableId": "8003006729",
+    "ageTableId": "8003006778",
+    "ownTableId": "8003006920",
+    "typeTableId": "8003006969"
+  },
+  "11": {
+    "prefCode": "11",
+    "prefName": "埼玉県",
+    "popTableId": "8003006722",
+    "ageTableId": "8003006762",
+    "ownTableId": "8003006927",
+    "typeTableId": "8003006944"
+  },
+  "12": {
+    "prefCode": "12",
+    "prefName": "千葉県",
+    "popTableId": "8003006730",
+    "ageTableId": "8003006752",
+    "ownTableId": "8003006933",
+    "typeTableId": "8003006945"
+  },
+  "13": {
+    "prefCode": "13",
+    "prefName": "東京都",
+    "popTableId": "8003006724",
+    "ageTableId": "8003006792",
+    "ownTableId": "8003006918",
+    "typeTableId": "8003006978"
+  },
+  "14": {
+    "prefCode": "14",
+    "prefName": "神奈川県",
+    "popTableId": "8003006705",
+    "ageTableId": "8003006761",
+    "ownTableId": "8003006902",
+    "typeTableId": "8003006964"
+  },
+  "15": {
+    "prefCode": "15",
+    "prefName": "新潟県",
+    "popTableId": "8003006731",
+    "ageTableId": "8003006774",
+    "ownTableId": "8003006915",
+    "typeTableId": "8003006966"
+  },
+  "16": {
+    "prefCode": "16",
+    "prefName": "富山県",
+    "popTableId": "8003006706",
+    "ageTableId": "8003006784",
+    "ownTableId": "8003006930",
+    "typeTableId": "8003006936"
+  },
+  "17": {
+    "prefCode": "17",
+    "prefName": "石川県",
+    "popTableId": "8003006741",
+    "ageTableId": "8003006771",
+    "ownTableId": "8003006908",
+    "typeTableId": "8003006955"
+  },
+  "18": {
+    "prefCode": "18",
+    "prefName": "福井県",
+    "popTableId": "8003006707",
+    "ageTableId": "8003006753",
+    "ownTableId": "8003006909",
+    "typeTableId": "8003006956"
+  },
+  "19": {
+    "prefCode": "19",
+    "prefName": "山梨県",
+    "popTableId": "8003006725",
+    "ageTableId": "8003006758",
+    "ownTableId": "8003006919",
+    "typeTableId": "8003006960"
+  },
+  "20": {
+    "prefCode": "20",
+    "prefName": "長野県",
+    "popTableId": "8003006719",
+    "ageTableId": "8003006775",
+    "ownTableId": "8003006932",
+    "typeTableId": "8003006965"
+  },
+  "21": {
+    "prefCode": "21",
+    "prefName": "岐阜県",
+    "popTableId": "8003006712",
+    "ageTableId": "8003006782",
+    "ownTableId": "8003006922",
+    "typeTableId": "8003006942"
+  },
+  "22": {
+    "prefCode": "22",
+    "prefName": "静岡県",
+    "popTableId": "8003006732",
+    "ageTableId": "8003006767",
+    "ownTableId": "8003006911",
+    "typeTableId": "8003006974"
+  },
+  "23": {
+    "prefCode": "23",
+    "prefName": "愛知県",
+    "popTableId": "8003006708",
+    "ageTableId": "8003006757",
+    "ownTableId": "8003006923",
+    "typeTableId": "8003006970"
+  },
+  "24": {
+    "prefCode": "24",
+    "prefName": "三重県",
+    "popTableId": "8003006738",
+    "ageTableId": "8003006776",
+    "ownTableId": "8003006934",
+    "typeTableId": "8003006981"
+  },
+  "25": {
+    "prefCode": "25",
+    "prefName": "滋賀県",
+    "popTableId": "8003006700",
+    "ageTableId": "8003006787",
+    "ownTableId": "8003006914",
+    "typeTableId": "8003006946"
+  },
+  "26": {
+    "prefCode": "26",
+    "prefName": "京都府",
+    "popTableId": "8003006701",
+    "ageTableId": "8003006764",
+    "ownTableId": "8003006924",
+    "typeTableId": "8003006958"
+  },
+  "27": {
+    "prefCode": "27",
+    "prefName": "大阪府",
+    "popTableId": "8003006702",
+    "ageTableId": "8003006751",
+    "ownTableId": "8003006900",
+    "typeTableId": "8003006949"
+  },
+  "28": {
+    "prefCode": "28",
+    "prefName": "兵庫県",
+    "popTableId": "8003006742",
+    "ageTableId": "8003006777",
+    "ownTableId": "8003006897",
+    "typeTableId": "8003006967"
+  },
+  "29": {
+    "prefCode": "29",
+    "prefName": "奈良県",
+    "popTableId": "8003006713",
+    "ageTableId": "8003006763",
+    "ownTableId": "8003006926",
+    "typeTableId": "8003006939"
+  },
+  "30": {
+    "prefCode": "30",
+    "prefName": "和歌山県",
+    "popTableId": "8003006703",
+    "ageTableId": "8003006772",
+    "ownTableId": "8003006898",
+    "typeTableId": "8003006950"
+  },
+  "31": {
+    "prefCode": "31",
+    "prefName": "鳥取県",
+    "popTableId": "8003006709",
+    "ageTableId": "8003006790",
+    "ownTableId": "8003006896",
+    "typeTableId": "8003006961"
+  },
+  "32": {
+    "prefCode": "32",
+    "prefName": "島根県",
+    "popTableId": "8003006720",
+    "ageTableId": "8003006754",
+    "ownTableId": "8003006904",
+    "typeTableId": "8003006948"
+  },
+  "33": {
+    "prefCode": "33",
+    "prefName": "岡山県",
+    "popTableId": "8003006739",
+    "ageTableId": "8003006779",
+    "ownTableId": "8003006925",
+    "typeTableId": "8003006968"
+  },
+  "34": {
+    "prefCode": "34",
+    "prefName": "広島県",
+    "popTableId": "8003006710",
+    "ageTableId": "8003006785",
+    "ownTableId": "8003006901",
+    "typeTableId": "8003006980"
+  },
+  "35": {
+    "prefCode": "35",
+    "prefName": "山口県",
+    "popTableId": "8003006714",
+    "ageTableId": "8003006793",
+    "ownTableId": "8003006892",
+    "typeTableId": "8003006937"
+  },
+  "36": {
+    "prefCode": "36",
+    "prefName": "徳島県",
+    "popTableId": "8003006743",
+    "ageTableId": "8003006759",
+    "ownTableId": "8003006891",
+    "typeTableId": "8003006943"
+  },
+  "37": {
+    "prefCode": "37",
+    "prefName": "香川県",
+    "popTableId": "8003006744",
+    "ageTableId": "8003006780",
+    "ownTableId": "8003006903",
+    "typeTableId": "8003006947"
+  },
+  "38": {
+    "prefCode": "38",
+    "prefName": "愛媛県",
+    "popTableId": "8003006711",
+    "ageTableId": "8003006781",
+    "ownTableId": "8003006893",
+    "typeTableId": "8003006952"
+  },
+  "39": {
+    "prefCode": "39",
+    "prefName": "高知県",
+    "popTableId": "8003006715",
+    "ageTableId": "8003006786",
+    "ownTableId": "8003006910",
+    "typeTableId": "8003006979"
+  },
+  "40": {
+    "prefCode": "40",
+    "prefName": "福岡県",
+    "popTableId": "8003006733",
+    "ageTableId": "8003006768",
+    "ownTableId": "8003006921",
+    "typeTableId": "8003006957"
+  },
+  "41": {
+    "prefCode": "41",
+    "prefName": "佐賀県",
+    "popTableId": "8003006735",
+    "ageTableId": "8003006788",
+    "ownTableId": "8003006899",
+    "typeTableId": "8003006959"
+  },
+  "42": {
+    "prefCode": "42",
+    "prefName": "長崎県",
+    "popTableId": "8003006734",
+    "ageTableId": "8003006749",
+    "ownTableId": "8003006912",
+    "typeTableId": "8003006977"
+  },
+  "43": {
+    "prefCode": "43",
+    "prefName": "熊本県",
+    "popTableId": "8003006717",
+    "ageTableId": "8003006789",
+    "ownTableId": "8003006928",
+    "typeTableId": "8003006938"
+  },
+  "44": {
+    "prefCode": "44",
+    "prefName": "大分県",
+    "popTableId": "8003006740",
+    "ageTableId": "8003006770",
+    "ownTableId": "8003006913",
+    "typeTableId": "8003006940"
+  },
+  "45": {
+    "prefCode": "45",
+    "prefName": "宮崎県",
+    "popTableId": "8003006716",
+    "ageTableId": "8003006773",
+    "ownTableId": "8003006917",
+    "typeTableId": "8003006971"
+  },
+  "46": {
+    "prefCode": "46",
+    "prefName": "鹿児島県",
+    "popTableId": "8003006745",
+    "ageTableId": "8003006750",
+    "ownTableId": "8003006889",
+    "typeTableId": "8003006963"
+  },
+  "47": {
+    "prefCode": "47",
+    "prefName": "沖縄県",
+    "popTableId": "8003006746",
+    "ageTableId": "8003006748",
+    "ownTableId": "8003006916",
+    "typeTableId": "8003006976"
+  },
+  "01": {
+    "prefCode": "01",
+    "prefName": "北海道",
+    "popTableId": "8003006726",
+    "ageTableId": "8003006783",
+    "ownTableId": "8003006905",
+    "typeTableId": "8003006962"
+  },
+  "02": {
+    "prefCode": "02",
+    "prefName": "青森県",
+    "popTableId": "8003006718",
+    "ageTableId": "8003006747",
+    "ownTableId": "8003006929",
+    "typeTableId": "8003006975"
+  },
+  "03": {
+    "prefCode": "03",
+    "prefName": "岩手県",
+    "popTableId": "8003006721",
+    "ageTableId": "8003006760",
+    "ownTableId": "8003006890",
+    "typeTableId": "8003006972"
+  },
+  "04": {
+    "prefCode": "04",
+    "prefName": "宮城県",
+    "popTableId": "8003006704",
+    "ageTableId": "8003006765",
+    "ownTableId": "8003006931",
+    "typeTableId": "8003006953"
+  },
+  "05": {
+    "prefCode": "05",
+    "prefName": "秋田県",
+    "popTableId": "8003006736",
+    "ageTableId": "8003006766",
+    "ownTableId": "8003006906",
+    "typeTableId": "8003006951"
+  },
+  "06": {
+    "prefCode": "06",
+    "prefName": "山形県",
+    "popTableId": "8003006727",
+    "ageTableId": "8003006791",
+    "ownTableId": "8003006888",
+    "typeTableId": "8003006954"
+  },
+  "07": {
+    "prefCode": "07",
+    "prefName": "福島県",
+    "popTableId": "8003006728",
+    "ageTableId": "8003006755",
+    "ownTableId": "8003006894",
+    "typeTableId": "8003006973"
+  },
+  "08": {
+    "prefCode": "08",
+    "prefName": "茨城県",
+    "popTableId": "8003006737",
+    "ageTableId": "8003006756",
+    "ownTableId": "8003006895",
+    "typeTableId": "8003006935"
+  },
+  "09": {
+    "prefCode": "09",
+    "prefName": "栃木県",
+    "popTableId": "8003006723",
+    "ageTableId": "8003006769",
+    "ownTableId": "8003006907",
+    "typeTableId": "8003006941"
+  }
+}

@@ -1,0 +1,14 @@
+#!/bin/sh
+# .githooks/pre-commit
+# GitHubへのコミット時に最新のDBデータをもとに sitemap.xml を自動生成してコミットに含める
+
+echo "🗺️ [Git Hook] GitHubコミット前にサイトマップを自動更新中..."
+node scripts/generateSitemap.js
+
+if [ $? -eq 0 ]; then
+  git add public/sitemap.xml public/sitemaps/ public/robots.txt
+  echo "✅ [Git Hook] 最新サイトマップをコミット対象に追加しました。"
+else
+  echo "❌ [Git Hook] サイトマップ生成に失敗したためコミットを中断しました。"
+  exit 1
+fi

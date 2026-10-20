@@ -7,7 +7,9 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "node scripts/generateSitemap.js && astro build",
+    "sitemap": "node scripts/generateSitemap.js",
+    "prepare": "git config core.hooksPath .githooks",
     "preview": "astro preview",
     "astro": "astro"
   },

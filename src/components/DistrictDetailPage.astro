@@ -1,0 +1,259 @@
+---
+// src/components/DistrictDetailPage.astro
+// 町字の詳細相場ページ（総合トップ index ＆ 種別ディレクトリ /mansion, /house, /land, /rosenka, /official, /standard 対応）
+import Layout from '../layouts/Layout.astro';
+import AreaDashboard from './AreaDashboard.astro';
+import AreaOverviewDashboard from './AreaOverviewDashboard.astro';
+import TabsNavBar from './TabsNavBar.astro';
+import { getDb } from '../lib/db.js';
+import { getAreaStats } from '../lib/areaStats.js';
+import { getLandPriceStats } from '../lib/landPriceStats.js';
+import { TYPE_CONFIG, normalizeType } from '../lib/typeConfig.js';
+import { SITE_URL } from '../lib/siteConfig.js';
+import { buildBreadcrumbSchema, buildArticleSchema, buildFaqSchema } from '../lib/structuredData.js';
+import { generateMarketReport } from '../lib/marketReport.js';
+import { generateAreaFaqs } from '../lib/areaSummary.js';
+
+export interface Props {
+    prefSlug: string;
+    municipalityCode: string;
+    districtCode: string;
+    type?: string;
+}
+const { prefSlug, municipalityCode, districtCode, type: rawType = 'index' } = Astro.props;
+const currentType = normalizeType(rawType);
+const isOverview = currentType === 'index';
+const conf = TYPE_CONFIG[currentType];
+const basePath = `/${prefSlug}/${municipalityCode}/${districtCode}`;
+
+const db = getDb();
+const TSUBO = 3.30578;
+
+const [nameRows] = await db.query(`
+    SELECT Prefecture, Municipality, DistrictName FROM transactions
+    WHERE MunicipalityCode = ? AND DistrictCode = ? LIMIT 1
+`, [municipalityCode, districtCode]);
+const pref = nameRows[0]?.Prefecture || '';
+const city = nameRows[0]?.Municipality || '';
+const district = nameRows[0]?.DistrictName || '';
+
+// 取引実績（種別ごとのKPI・四半期推移・直近事例）
+const stats = await getAreaStats(db, { municipalityCode, districtCode, rowLimit: 300 });
+const land = stats.types.land;
+const totalTx = Object.values(stats.types).reduce((s: number, t: any) => s + t.count, 0);
+
+// 2026年最新の公的地価データ（地区 → 市区町村の順でフォールバック）
+const landPrices = await getLandPriceStats(db, {
+    municipalityCode,
+    districtName: district,
+    realLandAvgSqm: land.avgSqm,
+});
+const offData = landPrices.official || {};
+const apprScope = landPrices.isDistrictSpecific ? district : city;
+const officialAvg = offData.avgPrice ? Number(offData.avgPrice) : null;
+const fluctuation = offData.avgFluctuation != null ? Number(offData.avgFluctuation) : null;
+const roadEstimate = landPrices.rosenka?.avgPrice ? Number(landPrices.rosenka.avgPrice) : null;
+const divergence = offData.divergence ?? null;
+
+// 期待利回り（鑑定評価書データがある場合）
+const [capRows] = await db.query(
+    `SELECT AVG(CASE WHEN CapRate > 0 THEN CapRate END) AS avgCapRate FROM appraisals WHERE MunicipalityCode = ?`,
+    [municipalityCode]
+);
+const capRate = capRows[0]?.avgCapRate ? Number(capRows[0].avgCapRate) : null;
+
+// 同じ市区町村内の近隣町名
+const [siblingRows] = await db.query(`
+    SELECT DistrictCode, MAX(DistrictName) AS DistrictName, COUNT(*) AS cnt FROM transactions
+    WHERE MunicipalityCode = ? AND DistrictCode != ? AND DistrictName IS NOT NULL AND DistrictName != '-' AND DistrictCode != '0'
+    GROUP BY DistrictCode ORDER BY cnt DESC LIMIT 40
+`, [municipalityCode, districtCode]);
+const siblings = siblingRows.map((r: any) => ({ code: String(r.DistrictCode).padStart(9, '0'), name: r.DistrictName }));
+
+const man1 = (yen: any) => (yen == null ? '—' : (yen / 10000).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+const pct = (v: any) => (v == null ? '—' : `${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%`);
+const dcls = (v: any) => (v == null ? 'flat' : v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
+
+const isLandPriceTab = currentType === 'rosenka' || currentType === 'official' || currentType === 'standard';
+
+// 総合トップページ用の定性市場分析レポート（district_descriptions テーブル）およびFAQ
+let qualitativeReport: { text: string; charCount: number } | null = null;
+let faqs: Array<{ question: string; answer: string }> = [];
+if (isOverview) {
+    const [descRows] = await db.query(
+        `SELECT Description, CharCount FROM district_descriptions WHERE Prefecture = ? AND Municipality = ? AND DistrictName = ? LIMIT 1`,
+        [pref, city, district]
+    );
+    if (descRows[0]?.Description) {
+        qualitativeReport = {
+            text: descRows[0].Description,
+            charCount: Number(descRows[0].CharCount || descRows[0].Description.length),
+        };
+    }
+    faqs = generateAreaFaqs({ pref, city, district, stats, landPrices, fluctuation });
+}
+
+const report = generateMarketReport({
+    pref,
+    city,
+    district,
+    currentType: isOverview ? 'mansion' : currentType,
+    stats,
+    landPrices,
+    fluctuation,
+});
+
+// SEO & タイトル（総合トップと各種別で完全分岐）
+const pageH1 = isOverview ? `${pref}${city}${district}${conf.h1Suffix}` : `${district}${conf.h1Suffix}`;
+const pageTitle = isOverview
+    ? `${pref}${city}${district}${conf.titleSuffix}｜チカシル`
+    : `${district}（${city}）${conf.titleSuffix}｜不動産相場・価格情報`;
+const metaDescription = conf.metaTemplate(`${city}${district}`, pref);
+const canonicalUrl = isOverview
+    ? `${SITE_URL}/${prefSlug}/${municipalityCode}/${districtCode}/`
+    : `${SITE_URL}/${prefSlug}/${municipalityCode}/${districtCode}/${currentType}`;
+
+const breadcrumbItems = [
+    { name: 'トップ', url: '/' },
+    { name: pref, url: `/${prefSlug}/` },
+    { name: city, url: `/${prefSlug}/${municipalityCode}/` },
+    { name: district, url: `/${prefSlug}/${municipalityCode}/${districtCode}/` },
+];
+if (!isOverview) {
+    breadcrumbItems.push({ name: conf.label, url: `/${prefSlug}/${municipalityCode}/${districtCode}/${currentType}` });
+}
+const breadcrumbs = buildBreadcrumbSchema(breadcrumbItems);
+
+const articleSchema = buildArticleSchema({
+    title: pageTitle,
+    headline: pageH1,
+    description: metaDescription,
+    url: canonicalUrl,
+});
+
+const faqSchema = isOverview ? buildFaqSchema(faqs) : null;
+const jsonLdList = [breadcrumbs, articleSchema, faqSchema].filter(Boolean);
+const cityTargetHref = isOverview ? `/${prefSlug}/${municipalityCode}/` : `/${prefSlug}/${municipalityCode}/${currentType}`;
+---
+
+<Layout title={pageTitle} description={metaDescription} canonical={canonicalUrl} jsonLd={jsonLdList}>
+
+    <section class="page-head">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="パンくずリスト">
+                <a href="/">トップ</a><span class="sep">/</span>
+                <a href={`/${prefSlug}/`}>{pref}</a><span class="sep">/</span>
+                <a href={cityTargetHref}>{city}</a><span class="sep">/</span>
+                {isOverview ? (
+                    <span aria-current="page">{district}</span>
+                ) : (
+                    <>
+                        <a href={`/${prefSlug}/${municipalityCode}/${districtCode}/`}>{district}</a><span class="sep">/</span>
+                        <span aria-current="page">{conf.label}</span>
+                    </>
+                )}
+            </nav>
+            <span class="eyebrow">{pref} {city}</span>
+            <div class="page-title-row">
+                <h1 class="page-title">{pageH1}</h1>
+                <TabsNavBar currentType={currentType} basePath={basePath} />
+            </div>
+            <div class="page-meta">
+                <span>地区コード <b class="num">{districtCode}</b></span>
+                <span>取引件数 <b class="num">{totalTx.toLocaleString()} 件</b></span>
+                <span><a href={cityTargetHref}>{city}全体の相場を見る →</a></span>
+            </div>
+        </div>
+    </section>
+
+    <div class="container">
+        {isOverview ? (
+            <AreaOverviewDashboard
+                areaName={district}
+                prefName={pref}
+                cityName={city}
+                districtName={district}
+                basePath={basePath}
+                stats={stats}
+                landPrices={landPrices}
+                fluctuation={fluctuation}
+                qualitativeReport={qualitativeReport}
+                fallbackReport={report}
+                faqs={faqs}
+            />
+        ) : (
+            <>
+                <AreaDashboard
+                    areaName={district}
+                    prefName={pref}
+                    cityName={city}
+                    districtName={district}
+                    stats={stats}
+                    fluctuation={fluctuation}
+                    landPrices={landPrices}
+                    initialType={currentType}
+                />
+
+                <!-- 公的価格との比較（実勢取引タブのみ表示） -->
+                {!isLandPriceTab && (
+                    <section class="section" aria-labelledby="official-comp-title">
+                        <div class="section-head">
+                            <div>
+                                <h2 class="section-title" id="official-comp-title">公的価格との比較</h2>
+                                <p class="section-sub">地価公示（{apprScope}{apprScope === city ? '全体' : ''}の2026年標準地平均）と土地の取引実績</p>
+                            </div>
+                        </div>
+                        <div class="grid-3">
+                            <div class="card">
+                                <div class="kpi-label">地価公示 平均</div>
+                                <div class="kpi-value">{man1(officialAvg)}<span class="kpi-unit">万円/㎡</span></div>
+                                <div class="kpi-note">坪単価 <b class="num">{man1(officialAvg ? officialAvg * TSUBO : null)} 万円</b>　<span class={`delta ${dcls(fluctuation)}`}>{pct(fluctuation)}</span></div>
+                            </div>
+                            <div class="card">
+                                <div class="kpi-label">相続税路線価の目安</div>
+                                <div class="kpi-value">{man1(roadEstimate)}<span class="kpi-unit">万円/㎡</span></div>
+                                <div class="kpi-note">地価公示 × 80% による推計値</div>
+                            </div>
+                            <div class="card">
+                                <div class="kpi-label">期待利回り / 実勢との差</div>
+                                <div class="stat-row"><span class="k">期待還元利回り</span><span class="v">{capRate ? `${capRate.toFixed(2)}%` : '—'}</span></div>
+                                <div class="stat-row"><span class="k">土地実勢 vs 地価公示</span><span class={`v delta ${dcls(divergence)}`}>{pct(divergence)}</span></div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {report.paragraphs.length > 0 && (
+                    <section class="section" aria-labelledby="report-title">
+                        <article class="card card-lg">
+                            <div class="section-head" style="margin-bottom: 14px;">
+                                <h2 class="card-title" id="report-title" style="font-size:1.15rem;">{report.title}</h2>
+                                <span class="badge info">データ分析・約{report.charCount.toLocaleString()}文字</span>
+                            </div>
+                            <div class="prose">
+                                {report.paragraphs.map((p: string) => (
+                                    <p>{p}</p>
+                                ))}
+                            </div>
+                        </article>
+                    </section>
+                )}
+            </>
+        )}
+
+        {siblings.length > 0 && (
+            <section class="section" aria-labelledby="siblings-title">
+                <div class="card">
+                    <h2 class="card-title" id="siblings-title" style="margin-bottom:14px;">{city}のほかの町名</h2>
+                    <div class="link-cloud">
+                        {siblings.map((s: any) => (
+                            <a href={isOverview ? `/${prefSlug}/${municipalityCode}/${s.code}/` : `/${prefSlug}/${municipalityCode}/${s.code}/${currentType}`}>
+                                {s.name}
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            </section>
+        )}
+    </div>
+</Layout>

@@ -1,0 +1,38 @@
+---
+// src/pages/[pref]/[city]/[district]/[type].astro
+import DistrictDetailPage from '../../../../components/DistrictDetailPage.astro';
+import { getDb } from '../../../../lib/db.js';
+import { VALID_TYPES } from '../../../../lib/typeConfig.js';
+
+export async function getStaticPaths() {
+    const db = getDb();
+    const [rows] = await db.query(`
+        SELECT DISTINCT MunicipalityCode, DistrictCode 
+        FROM transactions 
+        WHERE DistrictName IS NOT NULL AND DistrictName != '-' AND DistrictCode IS NOT NULL AND DistrictCode != '0'
+    `);
+    
+    const paths: any[] = [];
+    for (const row of rows as any[]) {
+        const muniCode = String(row.MunicipalityCode).padStart(5, '0');
+        const distCode = String(row.DistrictCode).padStart(9, '0');
+        const prefSlug = 'pref' + muniCode.slice(0, 2);
+
+        for (const type of VALID_TYPES) {
+            paths.push({
+                params: {
+                    pref: prefSlug,
+                    city: muniCode,
+                    district: distCode,
+                    type,
+                }
+            });
+        }
+    }
+    return paths;
+}
+
+const { pref: prefSlug, city: municipalityCode, district: districtCode, type } = Astro.params;
+---
+
+<DistrictDetailPage prefSlug={prefSlug} municipalityCode={municipalityCode} districtCode={districtCode} type={type} />
