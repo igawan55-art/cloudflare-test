@@ -4,7 +4,7 @@ import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
 import { E as createComponent, a as renderComponent, f as renderTemplate, g as defineScriptVars, h as addAttribute, p as maybeRenderHead, t as defineStyleVars } from "./compiler_BtRSHKO3.mjs";
 import { a as SITE_URL, n as buildArticleSchema, t as $$Layout } from "./Layout_Bson63KP.mjs";
 import { t as $$AreaDashboard } from "./AreaDashboard_BleeDO4s.mjs";
-import { a as getNationalFluctuation, l as getDb, r as getCityIndex, t as getAreaStats } from "./areaStats_vdvDVox9.mjs";
+import { a as getNationalFluctuation, l as getDb, r as getCityIndex, t as getAreaStats } from "./areaStats_CE41jAJX.mjs";
 //#region src/pages/index.astro
 var pages_exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Index,
@@ -147,4 +147,4 @@ var page = () => pages_exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=index_CS2GSd5F.mjs.map
+//# sourceMappingURL=index_C34NCfC4.mjs.map

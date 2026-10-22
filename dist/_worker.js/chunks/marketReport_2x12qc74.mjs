@@ -2,7 +2,7 @@ globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { C as unescapeHTML, E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
 import { a as formatManInt, i as formatMan1, l as generateAreaSummaryHtml, n as formatEraYear, o as formatPct, r as formatJpYen, s as formatShortAddress, t as describeFluctuationTrend } from "./areaSummary_Bqfz40N3.mjs";
-import { c as ssrCoreData_default } from "./areaStats_vdvDVox9.mjs";
+import { c as ssrCoreData_default } from "./areaStats_CE41jAJX.mjs";
 //#region src/components/AreaOverviewDashboard.astro
 createAstro("https://cloudflare-test.pages.dev");
 var $$AreaOverviewDashboard = createComponent(($$result, $$props, $$slots) => {
@@ -207,9 +207,20 @@ function computeAvgCapRate(rows) {
 }
 async function getCityAppraisalRows(db, municipalityCode) {
 	const muniCode = String(municipalityCode || "").padStart(5, "0");
-	if (cityRawCache.has(muniCode)) return cityRawCache.get(muniCode);
+	if (db?.d1) {
+		const d1Rows = await db.d1All(`SELECT year AS Year, address AS Address, division AS Division,
+                    official_price AS OfficialPrice, fluctuation_rate AS FluctuationRate,
+                    area AS Area, bcr AS BuildingCoverageRatio, far AS FloorAreaRatio, cap_rate AS CapRate
+             FROM appraisals_latest
+             WHERE muni_code = ?`, [muniCode]);
+		if (d1Rows && d1Rows.length > 0) return {
+			rows: d1Rows,
+			avgCapRate: computeAvgCapRate(d1Rows)
+		};
+	}
+	if (!db?.d1 && cityRawCache.has(muniCode)) return cityRawCache.get(muniCode);
 	const promise = (async () => {
-		if (!db?.isEdgeSnapshot) {
+		if (!db?.isEdgeSnapshot && !db?.d1) {
 			const [rows] = await db.query(`SELECT Year, Address, Division, OfficialPrice, FluctuationRate, Area, BuildingCoverageRatio, FloorAreaRatio, CapRate
                  FROM appraisals
                  WHERE MunicipalityCode = ?`, [muniCode]);
@@ -239,7 +250,7 @@ async function getCityAppraisalRows(db, municipalityCode) {
 			avgCapRate: null
 		};
 	})();
-	cityRawCache.set(muniCode, promise);
+	if (!db?.d1) cityRawCache.set(muniCode, promise);
 	return promise;
 }
 function buildBaseLandPriceStats(rawRows, avgCapRate, districtName) {
@@ -546,16 +557,16 @@ function buildBaseLandPriceStats(rawRows, avgCapRate, districtName) {
 	};
 }
 /**
-* @param {import('mysql2/promise').Pool} db
+* @param {any} db
 * @param {{ municipalityCode: string, districtName?: string, realLandAvgSqm?: number }} opts
 */
 async function getLandPriceStats(db, { municipalityCode, districtName = null, realLandAvgSqm = null } = {}) {
 	const baseKey = `${municipalityCode}|${districtName || ""}`;
-	let base = computedBaseCache.get(baseKey);
+	let base = !db?.d1 ? computedBaseCache.get(baseKey) : null;
 	if (!base) {
 		const { rows, avgCapRate } = await getCityAppraisalRows(db, municipalityCode);
 		base = buildBaseLandPriceStats(rows, avgCapRate, districtName);
-		computedBaseCache.set(baseKey, base);
+		if (!db?.d1) computedBaseCache.set(baseKey, base);
 	}
 	const avgOfficial = base.officialBase.avgPrice;
 	const divergence = realLandAvgSqm && avgOfficial ? (realLandAvgSqm / avgOfficial - 1) * 100 : null;
@@ -790,4 +801,4 @@ function generateMarketReport({ pref = "", city = "", district = "", currentType
 //#endregion
 export { VALID_TYPES as a, TYPE_CONFIG as i, getLandPriceStats as n, normalizeType as o, $$TabsNavBar as r, $$AreaOverviewDashboard as s, generateMarketReport as t };
 
-//# sourceMappingURL=marketReport_B-oyxVl5.mjs.map
+//# sourceMappingURL=marketReport_2x12qc74.mjs.map

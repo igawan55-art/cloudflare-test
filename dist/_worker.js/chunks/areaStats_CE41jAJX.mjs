@@ -3,6 +3,10 @@ globalThis.process.env ??= {};
 //#region src/lib/db.js
 var poolPromise = null;
 var dbUnavailable = false;
+function getCloudflareD1Binding() {
+	if (typeof globalThis !== "undefined" && globalThis.__CF_ENV__?.DB) return globalThis.__CF_ENV__.DB;
+	return null;
+}
 function isCloudflareWorkerWithoutRemoteDb() {
 	const env = typeof process !== "undefined" && process.env ? process.env : {};
 	const hasRemoteHost = Boolean(env.DB_HOST && env.DB_HOST !== "localhost" && env.DB_HOST !== "127.0.0.1");
@@ -10,7 +14,7 @@ function isCloudflareWorkerWithoutRemoteDb() {
 	return false;
 }
 async function getMysqlPool() {
-	if (dbUnavailable || isCloudflareWorkerWithoutRemoteDb()) return null;
+	if (getCloudflareD1Binding() || dbUnavailable || isCloudflareWorkerWithoutRemoteDb()) return null;
 	if (!poolPromise) poolPromise = (async () => {
 		try {
 			const env = typeof process !== "undefined" && process.env ? process.env : {};
@@ -48,9 +52,38 @@ async function getMysqlPool() {
 }
 function getDb() {
 	return {
+		/** Cloudflare D1 バインディングが存在するかどうか */
+		get d1() {
+			return getCloudflareD1Binding();
+		},
+		/** D1 も MySQL も使えず内蔵スナップショットのみで応答するモードかどうか */
 		get isEdgeSnapshot() {
+			if (getCloudflareD1Binding()) return false;
 			return dbUnavailable || isCloudflareWorkerWithoutRemoteDb();
 		},
+		/** Cloudflare D1 から単一行を主キー等で取得 (1 row read) */
+		async d1First(sql, params = []) {
+			const d1 = getCloudflareD1Binding();
+			if (!d1) return null;
+			try {
+				return await d1.prepare(sql).bind(...params).first();
+			} catch (err) {
+				console.error("[D1 First Error]", err);
+				return null;
+			}
+		},
+		/** Cloudflare D1 から複数行を取得 */
+		async d1All(sql, params = []) {
+			const d1 = getCloudflareD1Binding();
+			if (!d1) return [];
+			try {
+				return (await d1.prepare(sql).bind(...params).all())?.results || [];
+			} catch (err) {
+				console.error("[D1 All Error]", err);
+				return [];
+			}
+		},
+		/** MySQL 互換クエリ */
 		async query(sql, params = []) {
 			const pool = await getMysqlPool();
 			if (!pool) return [[], []];
@@ -96,11 +129,80 @@ var periodLabel = (p) => {
 /** 全国平均の地価公示変動率を取得 */
 async function getNationalFluctuation(db) {
 	if (ssrCoreData_default?.nationalFluctuation != null) return Number(ssrCoreData_default.nationalFluctuation);
+	if (db?.d1) {
+		const row = await db.d1First(`SELECT AVG(fluctuation_rate) AS f FROM appraisals_latest WHERE fluctuation_rate IS NOT NULL`);
+		if (row?.f != null) return Number(row.f);
+	}
 	const [flucRows] = await db.query(`SELECT AVG(FluctuationRate) AS f FROM appraisals WHERE FluctuationRate IS NOT NULL`);
 	return flucRows[0]?.f != null ? Number(flucRows[0].f) : null;
 }
 /** 都道府県ページ (/prefXX/) 用の集計データを取得 */
 async function getPrefecturePageData(db, prefCode) {
+	if (db?.d1) {
+		const [cityRows, apprRows] = await Promise.all([db.d1All(`SELECT muni_code AS MunicipalityCode, city_name AS name, pref_name AS prefName, tx_count AS txCount,
+                        mansion_avg AS mansionAvg, house_avg AS houseAvg, land_sqm_avg AS landSqmAvg
+                 FROM cities_master WHERE pref_code = ? ORDER BY tx_count DESC`, [prefCode]), db.d1All(`SELECT address AS Address, division AS Division, official_price AS OfficialPrice, fluctuation_rate AS FluctuationRate
+                 FROM appraisals_latest WHERE pref_code = ? ORDER BY official_price DESC`, [prefCode])]);
+		if (cityRows && cityRows.length > 0) {
+			const divMap = /* @__PURE__ */ new Map();
+			let totalCnt = 0, pSum = 0, pCnt = 0, fSum = 0, fCnt = 0;
+			for (const r of apprRows) {
+				totalCnt++;
+				const op = toNum(r.OfficialPrice);
+				const fl = toNum(r.FluctuationRate);
+				if (op != null) {
+					pSum += op;
+					pCnt++;
+				}
+				if (fl != null) {
+					fSum += fl;
+					fCnt++;
+				}
+				const dKey = r.Division || "住宅地";
+				let d = divMap.get(dKey);
+				if (!d) {
+					d = {
+						Division: dKey,
+						cnt: 0,
+						pSum: 0,
+						pCnt: 0,
+						fSum: 0,
+						fCnt: 0
+					};
+					divMap.set(dKey, d);
+				}
+				d.cnt++;
+				if (op != null) {
+					d.pSum += op;
+					d.pCnt++;
+				}
+				if (fl != null) {
+					d.fSum += fl;
+					d.fCnt++;
+				}
+			}
+			const apprSummary = [...divMap.values()].map((d) => ({
+				Division: d.Division,
+				cnt: d.cnt,
+				avgOfficial: d.pCnt > 0 ? d.pSum / d.pCnt : null,
+				avgFluctuation: d.fCnt > 0 ? d.fSum / d.fCnt : null
+			}));
+			if (totalCnt > 0) apprSummary.push({
+				Division: null,
+				cnt: totalCnt,
+				avgOfficial: pCnt > 0 ? pSum / pCnt : null,
+				avgFluctuation: fCnt > 0 ? fSum / fCnt : null
+			});
+			const nonZero = apprRows.filter((r) => Number(r.OfficialPrice) > 0);
+			return {
+				cities: cityRows,
+				apprSummary,
+				maxPoint: apprRows[0] || null,
+				minPoint: nonZero.length > 0 ? nonZero[nonZero.length - 1] : null,
+				topAppraisals: apprRows.slice(0, 15)
+			};
+		}
+	}
 	const snap = ssrCoreData_default?.prefs?.[prefCode];
 	if (snap && snap.cities && snap.cities.length > 0) return {
 		cities: snap.cities,
@@ -381,6 +483,22 @@ async function computeDistrictStatsFast(db, municipalityCode, districtCode, rowL
 */
 async function getAreaStats(db, { municipalityCode = null, districtCode = null, rowLimit = 300 } = {}) {
 	if (!municipalityCode && !districtCode && ssrCoreData_default?.nationalStats) return ssrCoreData_default.nationalStats;
+	if (db?.d1) {
+		const areaKey = districtCode ? String(districtCode).padStart(9, "0") : municipalityCode ? String(municipalityCode).padStart(5, "0") : "all";
+		const d1Row = await db.d1First(`SELECT pref_name, city_name, district_name, stats_json FROM area_stats WHERE area_key = ?`, [areaKey]);
+		if (d1Row?.stats_json) {
+			const parsed = JSON.parse(d1Row.stats_json);
+			return {
+				types: parsed.types || parsed,
+				meta: parsed.meta || {
+					pref: d1Row.pref_name || "",
+					city: d1Row.city_name || "",
+					district: d1Row.district_name || ""
+				}
+			};
+		}
+		return buildFallbackStatsFromSnapshot(municipalityCode, districtCode);
+	}
 	if (db?.isEdgeSnapshot) return buildFallbackStatsFromSnapshot(municipalityCode, districtCode);
 	const effectiveLimit = districtCode ? Math.min(rowLimit, 80) : municipalityCode ? Math.min(rowLimit, 120) : rowLimit;
 	const cacheKey = `stats:${municipalityCode || "all"}|${districtCode || "all"}`;
@@ -483,13 +601,24 @@ async function getAreaStats(db, { municipalityCode = null, districtCode = null, 
 /** 市区町村内の町名別相場一覧・自治体名（市区町村ページと地区ページの近隣町名で共有キャッシュ） */
 async function getCityDistrictSummaries(db, municipalityCode) {
 	const muniCode = String(municipalityCode || "").padStart(5, "0");
+	if (db?.d1) {
+		const row = await db.d1First(`SELECT pref_name, city_name, districts_json FROM cities_master WHERE muni_code = ?`, [muniCode]);
+		if (row) {
+			const districts = row.districts_json ? JSON.parse(row.districts_json) : [];
+			if (districts.length > 0 || !ssrCoreData_default?.tokyoCities?.[muniCode]) return {
+				pref: row.pref_name || "",
+				city: row.city_name || "",
+				districts
+			};
+		}
+	}
 	const tokyoSnap = ssrCoreData_default?.tokyoCities?.[muniCode];
-	if (tokyoSnap && db?.isEdgeSnapshot) return {
+	if (tokyoSnap && (db?.isEdgeSnapshot || db?.d1)) return {
 		pref: tokyoSnap.pref,
 		city: tokyoSnap.city,
 		districts: tokyoSnap.districts || []
 	};
-	if (db?.isEdgeSnapshot) {
+	if (db?.isEdgeSnapshot || db?.d1) {
 		const prefCode = muniCode.slice(0, 2);
 		const cityEntry = ssrCoreData_default?.prefs?.[prefCode]?.cities?.find((c) => c.MunicipalityCode === muniCode);
 		return {
@@ -544,11 +673,18 @@ async function getCityDistrictSummaries(db, municipalityCode) {
 	cache.set(cacheKey, promise);
 	return promise;
 }
-/** district_descriptions テーブルの一括メモリキャッシュ取得 */
+/** 市場分析テキスト (area_descriptions / district_descriptions) の取得 */
 async function getQualitativeReport(db, pref, city, district) {
 	const snapKey = `${pref}|${city}|${district}`;
+	if (db?.d1) {
+		const row = await db.d1First(`SELECT description, char_count FROM area_descriptions WHERE area_key = ?`, [snapKey]);
+		if (row?.description) return {
+			text: row.description,
+			charCount: Number(row.char_count || row.description.length)
+		};
+	}
 	if (ssrCoreData_default?.descriptions?.[snapKey]) return ssrCoreData_default.descriptions[snapKey];
-	if (db?.isEdgeSnapshot) return null;
+	if (db?.isEdgeSnapshot || db?.d1) return null;
 	if (!cache.has("allDistrictDescriptions")) {
 		const promise = (async () => {
 			const [rows] = await db.query(`SELECT Prefecture, Municipality, DistrictName, Description, CharCount FROM district_descriptions`);
@@ -565,6 +701,16 @@ async function getQualitativeReport(db, pref, city, district) {
 }
 /** 取引件数の多い市区町村（トップページ・エリア一覧用） */
 async function getCityIndex(db) {
+	if (db?.d1) {
+		const rows = await db.d1All(`SELECT muni_code, pref_code, pref_name, city_name, tx_count FROM cities_master ORDER BY muni_code ASC`);
+		if (rows && rows.length > 0) return rows.map((r) => ({
+			code: String(r.muni_code).padStart(5, "0"),
+			pref: `pref${String(r.pref_code).padStart(2, "0")}`,
+			prefName: r.pref_name,
+			name: r.city_name,
+			count: Number(r.tx_count || 0)
+		}));
+	}
 	if (ssrCoreData_default?.prefs) {
 		const cities = [];
 		for (const [prefId, pData] of Object.entries(ssrCoreData_default.prefs)) for (const c of pData.cities || []) {
@@ -606,12 +752,23 @@ async function getCityIndex(db) {
 /** 指定市区町村内の町名・地区一覧を取得 */
 async function getDistrictsByCity(db, municipalityCode) {
 	const muniCode = String(municipalityCode || "").padStart(5, "0");
-	if (ssrCoreData_default?.tokyoCities?.[muniCode]?.districts && db?.isEdgeSnapshot) return [...ssrCoreData_default.tokyoCities[muniCode].districts].sort((a, b) => a.code.localeCompare(b.code)).map((d) => ({
+	if (db?.d1) {
+		const row = await db.d1First(`SELECT districts_json FROM cities_master WHERE muni_code = ?`, [muniCode]);
+		if (row?.districts_json) {
+			const parsed = JSON.parse(row.districts_json);
+			if (parsed.length > 0) return [...parsed].sort((a, b) => a.code.localeCompare(b.code)).map((d) => ({
+				code: d.code,
+				name: d.name,
+				count: d.count
+			}));
+		}
+	}
+	if (ssrCoreData_default?.tokyoCities?.[muniCode]?.districts && (db?.isEdgeSnapshot || db?.d1)) return [...ssrCoreData_default.tokyoCities[muniCode].districts].sort((a, b) => a.code.localeCompare(b.code)).map((d) => ({
 		code: d.code,
 		name: d.name,
 		count: d.count
 	}));
-	if (db?.isEdgeSnapshot) return [];
+	if (db?.isEdgeSnapshot || db?.d1) return [];
 	const cacheKey = `districts:${muniCode}`;
 	if (cache.has(cacheKey)) return cache.get(cacheKey);
 	const promise = (async () => {
@@ -637,4 +794,4 @@ async function getDistrictsByCity(db, municipalityCode) {
 //#endregion
 export { getNationalFluctuation as a, ssrCoreData_default as c, getDistrictsByCity as i, getDb as l, getCityDistrictSummaries as n, getPrefecturePageData as o, getCityIndex as r, getQualitativeReport as s, getAreaStats as t };
 
-//# sourceMappingURL=areaStats_vdvDVox9.mjs.map
+//# sourceMappingURL=areaStats_CE41jAJX.mjs.map

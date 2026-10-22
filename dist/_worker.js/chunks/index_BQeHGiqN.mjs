@@ -4,7 +4,7 @@ import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
 import { C as unescapeHTML, E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
 import { a as SITE_URL, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_Bson63KP.mjs";
 import { u as generatePrefSummaryHtml } from "./areaSummary_Bqfz40N3.mjs";
-import { l as getDb, o as getPrefecturePageData } from "./areaStats_vdvDVox9.mjs";
+import { l as getDb, o as getPrefecturePageData } from "./areaStats_CE41jAJX.mjs";
 //#region src/pages/[pref]/index.astro
 var _pref__exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Index,
@@ -129,4 +129,4 @@ var page = () => _pref__exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=index_CMLT92wu.mjs.map
+//# sourceMappingURL=index_BQeHGiqN.mjs.map

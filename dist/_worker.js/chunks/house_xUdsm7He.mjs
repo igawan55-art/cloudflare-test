@@ -2,7 +2,7 @@ globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
 import { E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate } from "./compiler_BtRSHKO3.mjs";
-import { t as $$CityDetailPage } from "./CityDetailPage_BnAbHo_9.mjs";
+import { t as $$CityDetailPage } from "./CityDetailPage_DSE0bbAp.mjs";
 //#region src/pages/[pref]/[city]/house.astro
 var house_exports = /* @__PURE__ */ __exportAll({
 	default: () => $$House,
@@ -28,4 +28,4 @@ var page = () => house_exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=house_kPkEFD1b.mjs.map
+//# sourceMappingURL=house_xUdsm7He.mjs.map

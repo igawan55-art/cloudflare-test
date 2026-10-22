@@ -1,6 +1,6 @@
 // src/lib/landPriceStats.js
 // 地価公示（Official Price）、基準地価（Standard Land Price）、路線価（Rosenka）の集計ヘルパー
-// 市区町村単位のインメモリキャッシュおよび Cloudflare エッジスナップショットに対応
+// Cloudflare D1 (appraisals_latest) / ローカルMySQL / 内蔵スナップショットの3層ハイブリッド対応
 
 import ssrCoreData from '../data/ssrCoreData.json';
 
@@ -25,12 +25,28 @@ function computeAvgCapRate(rows) {
 
 async function getCityAppraisalRows(db, municipalityCode) {
     const muniCode = String(municipalityCode || '').padStart(5, '0');
-    if (cityRawCache.has(muniCode)) {
+
+    // 1. Cloudflare D1 バインディングがある場合: appraisals_latest から取得
+    if (db?.d1) {
+        const d1Rows = await db.d1All(
+            `SELECT year AS Year, address AS Address, division AS Division,
+                    official_price AS OfficialPrice, fluctuation_rate AS FluctuationRate,
+                    area AS Area, bcr AS BuildingCoverageRatio, far AS FloorAreaRatio, cap_rate AS CapRate
+             FROM appraisals_latest
+             WHERE muni_code = ?`,
+            [muniCode]
+        );
+        if (d1Rows && d1Rows.length > 0) {
+            return { rows: d1Rows, avgCapRate: computeAvgCapRate(d1Rows) };
+        }
+    }
+
+    if (!db?.d1 && cityRawCache.has(muniCode)) {
         return cityRawCache.get(muniCode);
     }
 
     const promise = (async () => {
-        if (!db?.isEdgeSnapshot) {
+        if (!db?.isEdgeSnapshot && !db?.d1) {
             const [rows] = await db.query(
                 `SELECT Year, Address, Division, OfficialPrice, FluctuationRate, Area, BuildingCoverageRatio, FloorAreaRatio, CapRate
                  FROM appraisals
@@ -64,7 +80,9 @@ async function getCityAppraisalRows(db, municipalityCode) {
         return { rows: fallbackRows, avgCapRate: null };
     })();
 
-    cityRawCache.set(muniCode, promise);
+    if (!db?.d1) {
+        cityRawCache.set(muniCode, promise);
+    }
     return promise;
 }
 
@@ -377,16 +395,18 @@ function buildBaseLandPriceStats(rawRows, avgCapRate, districtName) {
 }
 
 /**
- * @param {import('mysql2/promise').Pool} db
+ * @param {any} db
  * @param {{ municipalityCode: string, districtName?: string, realLandAvgSqm?: number }} opts
  */
 export async function getLandPriceStats(db, { municipalityCode, districtName = null, realLandAvgSqm = null } = {}) {
     const baseKey = `${municipalityCode}|${districtName || ''}`;
-    let base = computedBaseCache.get(baseKey);
+    let base = !db?.d1 ? computedBaseCache.get(baseKey) : null;
     if (!base) {
         const { rows, avgCapRate } = await getCityAppraisalRows(db, municipalityCode);
         base = buildBaseLandPriceStats(rows, avgCapRate, districtName);
-        computedBaseCache.set(baseKey, base);
+        if (!db?.d1) {
+            computedBaseCache.set(baseKey, base);
+        }
     }
 
     const avgOfficial = base.officialBase.avgPrice;

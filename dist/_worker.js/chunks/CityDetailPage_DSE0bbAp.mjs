@@ -4,8 +4,8 @@ import { E as createComponent, T as createAstro, a as renderComponent, f as rend
 import { a as SITE_URL, i as buildFaqSchema, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_Bson63KP.mjs";
 import { c as generateAreaFaqs } from "./areaSummary_Bqfz40N3.mjs";
 import { t as $$AreaDashboard } from "./AreaDashboard_BleeDO4s.mjs";
-import { i as TYPE_CONFIG, n as getLandPriceStats, o as normalizeType, r as $$TabsNavBar, s as $$AreaOverviewDashboard, t as generateMarketReport } from "./marketReport_B-oyxVl5.mjs";
-import { l as getDb, n as getCityDistrictSummaries, t as getAreaStats } from "./areaStats_vdvDVox9.mjs";
+import { i as TYPE_CONFIG, n as getLandPriceStats, o as normalizeType, r as $$TabsNavBar, s as $$AreaOverviewDashboard, t as generateMarketReport } from "./marketReport_2x12qc74.mjs";
+import { l as getDb, n as getCityDistrictSummaries, t as getAreaStats } from "./areaStats_CE41jAJX.mjs";
 //#region src/components/CityDetailPage.astro
 createAstro("https://cloudflare-test.pages.dev");
 var $$CityDetailPage = createComponent(async ($$result, $$props, $$slots) => {
@@ -151,4 +151,4 @@ var $$CityDetailPage = createComponent(async ($$result, $$props, $$slots) => {
 //#endregion
 export { $$CityDetailPage as t };
 
-//# sourceMappingURL=CityDetailPage_BnAbHo_9.mjs.map
+//# sourceMappingURL=CityDetailPage_DSE0bbAp.mjs.map

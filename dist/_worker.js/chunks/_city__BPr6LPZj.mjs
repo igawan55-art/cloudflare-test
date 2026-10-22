@@ -1,7 +1,7 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
-import { i as getDistrictsByCity, l as getDb } from "./areaStats_vdvDVox9.mjs";
+import { i as getDistrictsByCity, l as getDb } from "./areaStats_CE41jAJX.mjs";
 //#region src/pages/api/districts/[city].json.js
 var _city__json_exports = /* @__PURE__ */ __exportAll({ GET: () => GET });
 async function GET({ params }) {
@@ -18,4 +18,4 @@ var page = () => _city__json_exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=_city__BViJ0mqi.mjs.map
+//# sourceMappingURL=_city__BPr6LPZj.mjs.map

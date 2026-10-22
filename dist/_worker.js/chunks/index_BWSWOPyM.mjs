@@ -2,7 +2,7 @@ globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
 import { E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate } from "./compiler_BtRSHKO3.mjs";
-import { t as $$DistrictDetailPage } from "./DistrictDetailPage_BSpO6doE.mjs";
+import { t as $$DistrictDetailPage } from "./DistrictDetailPage_3p-Gt1tJ.mjs";
 //#region src/pages/[pref]/[city]/[district]/index.astro
 var _district__exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Index,
@@ -29,4 +29,4 @@ var page = () => _district__exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=index_BzWnOJjL.mjs.map
+//# sourceMappingURL=index_BWSWOPyM.mjs.map

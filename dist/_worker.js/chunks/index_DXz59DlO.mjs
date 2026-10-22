@@ -3,7 +3,7 @@ globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
 import { E as createComponent, a as renderComponent, f as renderTemplate, g as defineScriptVars, h as addAttribute, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
 import { a as SITE_URL, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_Bson63KP.mjs";
-import { l as getDb, r as getCityIndex } from "./areaStats_vdvDVox9.mjs";
+import { l as getDb, r as getCityIndex } from "./areaStats_CE41jAJX.mjs";
 //#region src/pages/areas/index.astro
 var areas_exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Index,
@@ -398,4 +398,4 @@ var page = () => areas_exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=index_J_TafAge.mjs.map
+//# sourceMappingURL=index_DXz59DlO.mjs.map

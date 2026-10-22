@@ -10,6 +10,10 @@
     "build": "astro build && node scripts/prepareCloudflarePages.js",
     "sitemap": "node scripts/generateSitemap.js",
     "snapshot": "node scripts/generateSsrSnapshot.js",
+    "d1:export": "node scripts/exportMysqlToD1.js",
+    "d1:export:all": "node scripts/exportMysqlToD1.js --all",
+    "d1:import:local": "node scripts/importToD1.js --local",
+    "d1:import:remote": "node scripts/importToD1.js --remote",
     "prepare": "git config core.hooksPath .githooks",
     "preview": "astro preview",
     "astro": "astro"

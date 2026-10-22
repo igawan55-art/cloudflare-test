@@ -1,6 +1,10 @@
 # build output (Cloudflare Pages 用にコミット対象にする)
 # dist/
 
+# Cloudflare D1 SQL export dumps and local wrangler state
+d1_export/
+.wrangler/
+
 # generated types
 .astro/
 

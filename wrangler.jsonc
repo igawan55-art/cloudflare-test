@@ -3,5 +3,12 @@
   "name": "realestate-astro",
   "compatibility_date": "2026-10-12",
   "compatibility_flags": ["nodejs_compat"],
-  "pages_build_output_dir": "./dist"
+  "pages_build_output_dir": "./dist",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "realestate-d1",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
 }
