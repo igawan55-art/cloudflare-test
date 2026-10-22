@@ -3,6 +3,7 @@
 
 # Cloudflare D1 SQL export dumps and local wrangler state
 d1_export/
+d1_districts_export/
 .wrangler/
 
 # generated types
