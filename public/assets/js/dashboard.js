@@ -135,10 +135,21 @@
                     ],
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    resizeDelay: 100,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { position: 'top', align: 'end', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, font: { size: 12 } } },
+                        legend: {
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                boxWidth: 8,
+                                boxHeight: 8,
+                                usePointStyle: true,
+                                font: { size: typeof window !== 'undefined' && window.innerWidth < 640 ? 11 : 12 }
+                            }
+                        },
                         tooltip: {
                             backgroundColor: '#0F172A', padding: 12, cornerRadius: 8, titleFont: { weight: '600' },
                             bodyFont: { family: "'Inter','Noto Sans JP',sans-serif" },
@@ -150,9 +161,45 @@
                         },
                     },
                     scales: {
-                        x: { grid: { display: false }, border: { color: '#E2E8F0' } },
-                        y: { position: 'left', grid: { color: '#F1F5F9' }, border: { display: false }, ticks: { callback: (v) => fmtInt(v) }, title: { display: true, text: unit } },
-                        y1: { position: 'right', grid: { drawOnChartArea: false }, border: { display: false }, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: '件' } },
+                        x: {
+                            grid: { display: false },
+                            border: { color: '#E2E8F0' },
+                            ticks: {
+                                autoSkip: true,
+                                maxTicksLimit: typeof window !== 'undefined' && window.innerWidth < 640 ? 5 : 10,
+                                maxRotation: 0,
+                                font: { size: typeof window !== 'undefined' && window.innerWidth < 640 ? 10 : 11 }
+                            }
+                        },
+                        y: {
+                            position: 'left',
+                            grid: { color: '#F1F5F9' },
+                            border: { display: false },
+                            ticks: {
+                                callback: (v) => fmtInt(v),
+                                font: { size: typeof window !== 'undefined' && window.innerWidth < 640 ? 10 : 11 }
+                            },
+                            title: {
+                                display: true,
+                                text: unit,
+                                font: { size: typeof window !== 'undefined' && window.innerWidth < 640 ? 10 : 12 }
+                            }
+                        },
+                        y1: {
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            border: { display: false },
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0,
+                                font: { size: typeof window !== 'undefined' && window.innerWidth < 640 ? 10 : 11 }
+                            },
+                            title: {
+                                display: true,
+                                text: '件',
+                                font: { size: typeof window !== 'undefined' && window.innerWidth < 640 ? 10 : 12 }
+                            }
+                        },
                     },
                 },
             });

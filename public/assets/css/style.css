@@ -35,6 +35,11 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -124,6 +129,8 @@ p { margin: 0; }
     border-radius: var(--radius);
     box-shadow: var(--shadow-sm);
     padding: 24px;
+    min-width: 0;
+    max-width: 100%;
 }
 .card-lg { padding: 32px; }
 .card-title { font-size: 1.05rem; color: var(--text); margin-bottom: 4px; }
@@ -271,10 +278,11 @@ p { margin: 0; }
 .badge.info { background: var(--primary-50); color: var(--primary); }
 
 /* ---------------- Layout helpers ---------------- */
-.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.grid-chart { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-.chart-box { position: relative; height: 340px; margin-top: 16px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+.grid-chart { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 16px; align-items: start; min-width: 0; max-width: 100%; }
+.chart-box { position: relative; height: 340px; margin-top: 16px; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; }
+.chart-box canvas { max-width: 100% !important; width: 100% !important; display: block; }
 .stack > * + * { margin-top: 16px; }
 
 /* ---------------- Table ---------------- */
@@ -339,7 +347,7 @@ p { margin: 0; }
 /* ---------------- Responsive ---------------- */
 @media (max-width: 1024px) {
     .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .grid-chart { grid-template-columns: 1fr; }
+    .grid-chart { grid-template-columns: minmax(0, 1fr); }
     .hero-grid { grid-template-columns: 1fr; gap: 32px; }
     .footer-grid { grid-template-columns: 1fr 1fr; }
     .footer-grid > :first-child { grid-column: 1 / -1; }
@@ -352,9 +360,11 @@ p { margin: 0; }
     .hero { padding: 36px 0 32px; }
     .hero h1 { font-size: 1.7rem; }
     .page-title { font-size: 1.45rem; }
-    .card, .kpi { padding: 20px; }
-    .card-lg { padding: 22px; }
+    .card, .kpi { padding: 16px; min-width: 0; }
+    .card-lg { padding: 18px; }
     .kpi-grid, .grid-2, .grid-3, .check-list { grid-template-columns: 1fr; }
+    .section-head { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .chart-box { height: 260px; }
     .page-title-row { flex-direction: column; align-items: flex-start; gap: 12px; }
     .page-title-row .tabs-nav-bar { width: 100%; }
     .seg:not(.seg-tabs) { width: 100%; }
@@ -371,6 +381,9 @@ p { margin: 0; }
     .data-table.responsive td { display: flex; flex-direction: column; padding: 0; border: 0; white-space: normal; text-align: left !important; }
     .data-table.responsive td::before { content: attr(data-label); font-size: 0.7rem; color: var(--muted); font-weight: 600; }
     .data-table.responsive td.cell-wide { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+    .chart-box { height: 220px; }
 }
 
 /* ---------- ファーストビュー直下 要約テキスト ---------- */
