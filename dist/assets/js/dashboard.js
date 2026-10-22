@@ -1,9 +1,27 @@
 // public/assets/js/dashboard.js
-// エリア相場ダッシュボード（KPI・推移グラフ・条件フィルタ・取引事例テーブル）
+// エリア相場ダッシュボード（実勢取引：KPI・推移グラフ・条件フィルタ・取引事例 ＆ 地価種別：路線価・公示価格・基準地価）
 (function () {
-    const DATA_YEAR = 2023;
+    const DATA_YEAR = new Date().getFullYear();
     const TSUBO = 3.30578;
-    const TYPE_LABEL = { mansion: '中古マンション', house: '戸建て', land: '土地' };
+    const TYPE_LABEL = {
+        mansion: '中古マンション',
+        house: '戸建て',
+        land: '土地',
+        rosenka: '路線価',
+        official: '公示価格',
+        kouji: '公示価格',
+        standard: '基準地価',
+        kijun: '基準地価',
+    };
+
+    const normalizeType = (t) => {
+        if (!t) return null;
+        if (t === 'kouji') return 'official';
+        if (t === 'kijun') return 'standard';
+        return TYPE_LABEL[t] ? t : null;
+    };
+
+    const isLandPriceType = (t) => t === 'rosenka' || t === 'official' || t === 'standard';
 
     const fmtInt = (n) => (n == null || !isFinite(n) ? '—' : Math.round(n).toLocaleString('ja-JP'));
     const fmt1 = (n) => (n == null || !isFinite(n) ? '—' : n.toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
@@ -43,18 +61,23 @@
     };
 
     function init(root) {
-        const data = JSON.parse(root.querySelector('script[type="application/json"]').textContent);
+        const scriptEl = root.querySelector('script[type="application/json"]');
+        if (!scriptEl) return;
+        const data = JSON.parse(scriptEl.textContent);
         const $ = (sel) => root.querySelector(sel);
         const $$ = (sel) => Array.from(root.querySelectorAll(sel));
 
-        const state = { type: data.initialType || 'mansion', metric: 'price', age: '', plan: '', area: '', struct: '', shown: 20 };
-        const qType = new URLSearchParams(location.search).get('type');
-        if (TYPE_LABEL[qType]) state.type = qType;
+        const initial = normalizeType(data.initialType) || 'mansion';
+        const state = { type: initial, metric: 'price', age: '', plan: '', area: '', struct: '', shown: 20 };
+        const qType = normalizeType(new URLSearchParams(location.search).get('type'));
+        if (qType && data.types && data.types[qType]) state.type = qType;
         let chart = null;
 
-        // ---------- KPI ----------
+        // ---------- KPI (実勢取引) ----------
         function renderKpi() {
+            if (isLandPriceType(state.type)) return;
             const t = data.types[state.type];
+            if (!t) return;
             $('[data-kpi="price"]').textContent = fmtInt(man(t.avgPrice));
             $('[data-kpi="tsubo"]').textContent = fmt1(t.avgSqm ? man(t.avgSqm * TSUBO) : null);
             $('[data-kpi="sqm"]').textContent = fmt1(man(t.avgSqm));
@@ -65,25 +88,30 @@
             const f = data.fluctuation;
             const fEl = $('[data-kpi="fluc"]');
             const badge = $('[data-kpi="flucBadge"]');
-            if (f == null) {
-                fEl.textContent = '—';
-                fEl.className = 'kpi-value delta flat';
-                badge.textContent = 'データなし';
-                badge.className = 'badge neutral';
-            } else {
-                const up = f > 0, down = f < 0;
-                fEl.innerHTML = `${up ? '+' : ''}${f.toFixed(2)}<span class="kpi-unit">%</span>`;
-                fEl.className = `kpi-value delta ${up ? 'up' : down ? 'down' : 'flat'}`;
-                badge.textContent = up ? '▲ 上昇' : down ? '▼ 下落' : '横ばい';
-                badge.className = `badge ${up ? 'up' : down ? 'down' : 'neutral'}`;
+            if (fEl && badge) {
+                if (f == null) {
+                    fEl.textContent = '—';
+                    fEl.className = 'kpi-value delta flat';
+                    badge.textContent = 'データなし';
+                    badge.className = 'badge neutral';
+                } else {
+                    const up = f > 0, down = f < 0;
+                    fEl.innerHTML = `${up ? '+' : ''}${f.toFixed(2)}<span class="kpi-unit">%</span>`;
+                    fEl.className = `kpi-value delta ${up ? 'up' : down ? 'down' : 'flat'}`;
+                    badge.textContent = up ? '▲ 上昇' : down ? '▼ 下落' : '横ばい';
+                    badge.className = `badge ${up ? 'up' : down ? 'down' : 'neutral'}`;
+                }
             }
         }
 
-        // ---------- Chart ----------
+        // ---------- Chart (実勢取引) ----------
         function renderChart() {
+            if (isLandPriceType(state.type)) return;
             const canvas = $('canvas');
             if (!canvas || !window.Chart) return;
-            const q = data.types[state.type].quarters;
+            const t = data.types[state.type];
+            if (!t) return;
+            const q = t.quarters || [];
             const isPrice = state.metric === 'price';
             const values = q.map((r) => (isPrice ? man(r.avgPrice) : r.avgSqm ? man(r.avgSqm * TSUBO) : null));
             const unit = isPrice ? '万円' : '万円/坪';
@@ -132,111 +160,138 @@
 
         // ---------- Filters ----------
         function renderFilterChips() {
-            const isLand = state.type === 'land';
-            $$('[data-filter-group="age"], [data-filter-group="struct"]').forEach((g) => (g.hidden = isLand));
-            $('[data-filter-group="plan"]').hidden = state.type !== 'mansion';
+            if (isLandPriceType(state.type)) return;
+            const ageGroup = $('[data-filter-group="age"]');
+            const planGroup = $('[data-filter-group="plan"]');
+            const structGroup = $('[data-filter-group="struct"]');
+            if (ageGroup) ageGroup.hidden = state.type === 'land';
+            if (planGroup) planGroup.hidden = state.type !== 'mansion';
+            if (structGroup) structGroup.hidden = state.type !== 'house';
+
             const areaChips = $('[data-filter-group="area"] .chips');
-            const buckets = state.type === 'mansion' ? AREA_BUCKETS.mansion : AREA_BUCKETS.other;
-            areaChips.innerHTML = buckets.map(([v, l]) => `<button type="button" class="chip" data-filter="area" data-value="${v}" aria-pressed="${state.area === v}">${l}</button>`).join('');
+            if (areaChips) {
+                const buckets = state.type === 'mansion' ? AREA_BUCKETS.mansion : AREA_BUCKETS.other;
+                areaChips.innerHTML = buckets.map(([v, l]) => `<button type="button" class="chip" data-filter="area" data-value="${v}" aria-pressed="${state.area === v}">${l}</button>`).join('');
+            }
             $$('.chip').forEach((c) => c.setAttribute('aria-pressed', String(state[c.dataset.filter] === c.dataset.value)));
         }
 
         function filteredRows() {
-            return data.types[state.type].rows.filter((r) =>
+            if (isLandPriceType(state.type)) return [];
+            const t = data.types[state.type];
+            if (!t || !t.rows) return [];
+            return t.rows.filter((r) =>
                 inAreaBucket(state.type, r.a, state.area) &&
                 (state.type === 'land' || inAgeBucket(r.by, state.age)) &&
                 (state.type !== 'mansion' || inPlanBucket(r.fp, state.plan)) &&
-                (state.type === 'land' || inStructBucket(r.st, state.struct))
+                (state.type !== 'house' || inStructBucket(r.st, state.struct))
             );
         }
 
-        // ---------- Table ----------
+        // ---------- Table (実勢取引) ----------
         function renderTable() {
+            if (isLandPriceType(state.type)) return;
+            const t = data.types[state.type];
+            if (!t) return;
             const rows = filteredRows();
-            const total = data.types[state.type].rows.length;
+            const total = t.rows.length;
             const priced = rows.filter((r) => r.pr > 0);
             const avg = priced.length ? priced.reduce((s, r) => s + r.pr, 0) / priced.length : null;
             const withArea = priced.filter((r) => r.a > 0);
             const avgT = withArea.length ? withArea.reduce((s, r) => s + r.pr / r.a, 0) / withArea.length * TSUBO : null;
 
-            $('[data-filter-result]').innerHTML = rows.length
-                ? `該当 <b class="num">${fmtInt(rows.length)}</b> 件（直近 ${fmtInt(total)} 件中）／平均 <b class="num">${fmtInt(man(avg))}</b> 万円・坪単価 <b class="num">${fmt1(man(avgT))}</b> 万円`
-                : '条件に一致する取引事例がありません。条件を変更してください。';
+            const resEl = $('[data-filter-result]');
+            if (resEl) {
+                resEl.innerHTML = rows.length
+                    ? `該当 <b class="num">${fmtInt(rows.length)}</b> 件（直近 ${fmtInt(total)} 件中）／平均 <b class="num">${fmtInt(man(avg))}</b> 万円・坪単価 <b class="num">${fmt1(man(avgT))}</b> 万円`
+                    : '条件に一致する取引事例がありません。条件を変更してください。';
+            }
 
-            const head = $('thead tr');
-            const isMansion = state.type === 'mansion', isLand = state.type === 'land';
-            const cols = [
-                ['取引時期', ''], ['所在地', ''], ['取引価格', 'r'], [isMansion ? '専有面積' : '土地面積', 'r'], ['坪単価', 'r'],
-                ...(isMansion ? [['間取り', '']] : isLand ? [] : [['延床面積', 'r']]),
-                ...(isLand ? [] : [['建築年', 'r'], ['構造', '']]),
-            ];
-            head.innerHTML = cols.map(([l, c]) => `<th class="${c}" scope="col">${l}</th>`).join('');
+            const head = $('[data-view="tx"] thead tr');
+            if (head) {
+                const isMansion = state.type === 'mansion', isLand = state.type === 'land';
+                const cols = [
+                    ['取引時期', ''], ['所在地', ''], ['取引価格', 'r'], [isMansion ? '専有面積' : '土地面積', 'r'], ['坪単価', 'r'],
+                    ...(isMansion ? [['間取り', '']] : isLand ? [] : [['延床面積', 'r']]),
+                    ...(isLand ? [] : [['建築年', 'r'], ['構造', '']]),
+                ];
+                head.innerHTML = cols.map(([l, c]) => `<th class="${c}" scope="col">${l}</th>`).join('');
+            }
 
-            const body = $('tbody');
+            const body = $('[data-view="tx"] tbody');
             const empty = $('[data-table-empty]');
             const list = rows.slice(0, state.shown);
-            empty.hidden = list.length > 0;
-            body.innerHTML = list.map((r) => {
-                const tsubo = r.pr > 0 && r.a ? man(r.pr / r.a * TSUBO) : null;
-                const loc = data.showMunicipality ? `${esc(r.pf)} ${esc(r.mu)}` : '';
-                const district = r.d
-                    ? (r.dc ? `<a href="/pref${r.mc.slice(0, 2)}/${r.mc}/${r.dc}?type=${encodeURIComponent(state.type)}">${esc(r.d)}</a>` : esc(r.d))
-                    : '<span class="muted">—</span>';
-                const age = r.by ? `<span class="muted">（築${DATA_YEAR - r.by}年）</span>` : '';
-                return `<tr>
-                    <td data-label="取引時期" class="num">${esc(r.p)}</td>
-                    <td data-label="所在地" class="cell-wide">${loc ? `<span class="muted">${loc}</span> ` : ''}${district}</td>
-                    <td data-label="取引価格" class="r strong num">${r.pr > 0 ? `${fmtInt(man(r.pr))} 万円` : '—'}</td>
-                    <td data-label="${isMansion ? '専有面積' : '土地面積'}" class="r num">${r.a ? `${fmtInt(r.a)} ㎡` : '—'}</td>
-                    <td data-label="坪単価" class="r num">${tsubo ? `${fmt1(tsubo)} 万円` : '—'}</td>
-                    ${isMansion ? `<td data-label="間取り">${esc(r.fp) || '—'}</td>` : isLand ? '' : `<td data-label="延床面積" class="r num">${r.fa ? `${fmtInt(r.fa)} ㎡` : '—'}</td>`}
-                    ${isLand ? '' : `<td data-label="建築年" class="r num">${r.by ? `${r.by}年${age}` : '—'}</td><td data-label="構造">${esc(r.st) || '—'}</td>`}
-                </tr>`;
-            }).join('');
+            if (empty) empty.hidden = list.length > 0;
+            if (body) {
+                const isMansion = state.type === 'mansion', isLand = state.type === 'land';
+                body.innerHTML = list.map((r) => {
+                    const tsubo = r.pr > 0 && r.a ? man(r.pr / r.a * TSUBO) : null;
+                    const loc = data.showMunicipality ? `${esc(r.pf)} ${esc(r.mu)}` : '';
+                    const district = r.d
+                        ? (r.dc ? `<a href="/pref${r.mc.slice(0, 2)}/${r.mc}/${r.dc}/${encodeURIComponent(state.type)}">${esc(r.d)}</a>` : esc(r.d))
+                        : '<span class="muted">—</span>';
+                    const age = r.by ? `<span class="muted">（築${DATA_YEAR - r.by}年）</span>` : '';
+                    return `<tr>
+                        <td data-label="取引時期" class="num">${esc(r.p)}</td>
+                        <td data-label="所在地" class="cell-wide">${loc ? `<span class="muted">${loc}</span> ` : ''}${district}</td>
+                        <td data-label="取引価格" class="r strong num">${r.pr > 0 ? `${fmtInt(man(r.pr))} 万円` : '—'}</td>
+                        <td data-label="${isMansion ? '専有面積' : '土地面積'}" class="r num">${r.a ? `${fmtInt(r.a)} ㎡` : '—'}</td>
+                        <td data-label="坪単価" class="r num">${tsubo ? `${fmt1(tsubo)} 万円` : '—'}</td>
+                        ${isMansion ? `<td data-label="間取り">${esc(r.fp) || '—'}</td>` : isLand ? '' : `<td data-label="延床面積" class="r num">${r.fa ? `${fmtInt(r.fa)} ㎡` : '—'}</td>`}
+                        ${isLand ? '' : `<td data-label="建築年" class="r num">${r.by ? `${r.by}年${age}` : '—'}</td><td data-label="構造">${esc(r.st) || '—'}</td>`}
+                    </tr>`;
+                }).join('');
+            }
 
             const more = $('[data-more]');
-            more.hidden = rows.length <= state.shown;
-            $('[data-table-count]').textContent = `${fmtInt(Math.min(state.shown, rows.length))} / ${fmtInt(rows.length)} 件を表示`;
+            if (more) more.hidden = rows.length <= state.shown;
+            const countEl = $('[data-table-count]');
+            if (countEl) countEl.textContent = `${fmtInt(Math.min(state.shown, rows.length))} / ${fmtInt(rows.length)} 件を表示`;
         }
 
         function syncAreaLinks() {
-            document.querySelectorAll('a[href^="/pref"]').forEach((a) => {
-                try {
-                    const u = new URL(a.getAttribute('href'), location.origin);
-                    u.searchParams.set('type', state.type);
-                    a.setAttribute('href', u.pathname + u.search + u.hash);
-                } catch {}
-            });
+            // ディレクトリURL構造のためURLパラメータ付与は不要
         }
 
         function updateUrl(push) {
-            const url = new URL(location.href);
-            if (url.searchParams.get('type') !== state.type) {
-                url.searchParams.set('type', state.type);
-                if (push) history.pushState({ type: state.type }, '', url);
-                else history.replaceState({ type: state.type }, '', url);
-            }
+            // ディレクトリURL構造のためURLパラメータ更新は不要
         }
 
         function renderAll() {
-            $$('[data-type-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.typeTab === state.type)));
-            renderKpi();
-            renderChart();
-            renderFilterChips();
-            renderTable();
+            const isLp = isLandPriceType(state.type);
+            document.querySelectorAll('[data-type-tab]').forEach((b) => {
+                const t = normalizeType(b.dataset.typeTab);
+                b.setAttribute('aria-selected', String(t === state.type));
+            });
+
+            const txView = $('[data-view="tx"]');
+            const landView = $('[data-view="land"]');
+
+            if (isLp) {
+                if (txView) txView.hidden = true;
+                if (landView) {
+                    landView.hidden = false;
+                    $$('[data-lp-type]').forEach((el) => {
+                        el.hidden = el.dataset.lpType !== state.type;
+                    });
+                }
+            } else {
+                if (landView) landView.hidden = true;
+                if (txView) {
+                    txView.hidden = false;
+                    renderKpi();
+                    renderChart();
+                    renderFilterChips();
+                    renderTable();
+                }
+            }
+
             syncAreaLinks();
             window.dispatchEvent(new CustomEvent('dashboard:typechange', { detail: { type: state.type } }));
         }
 
         // ---------- Events ----------
         root.addEventListener('click', (e) => {
-            const tab = e.target.closest('[data-type-tab]');
-            if (tab) {
-                Object.assign(state, { type: tab.dataset.typeTab, age: '', plan: '', area: '', struct: '', shown: 20 });
-                updateUrl(true);
-                renderAll();
-                return;
-            }
             const metric = e.target.closest('[data-metric]');
             if (metric) {
                 state.metric = metric.dataset.metric;
@@ -265,8 +320,8 @@
         });
 
         window.addEventListener('popstate', () => {
-            const pType = new URLSearchParams(location.search).get('type');
-            const nextType = TYPE_LABEL[pType] ? pType : (data.initialType || 'mansion');
+            const pType = normalizeType(new URLSearchParams(location.search).get('type'));
+            const nextType = pType || normalizeType(data.initialType) || 'mansion';
             if (nextType !== state.type) {
                 Object.assign(state, { type: nextType, age: '', plan: '', area: '', struct: '', shown: 20 });
                 renderAll();
@@ -280,4 +335,3 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
 })();
-

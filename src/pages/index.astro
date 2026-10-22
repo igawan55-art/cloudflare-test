@@ -2,21 +2,17 @@
 import Layout from '../layouts/Layout.astro';
 import AreaDashboard from '../components/AreaDashboard.astro';
 import { getDb } from '../lib/db.js';
-import { getAreaStats, getCityIndex } from '../lib/areaStats.js';
-import { getImage } from 'astro:assets';
-import bgImage from '../assets/images/background.jpg';
+import { getAreaStats, getCityIndex, getNationalFluctuation } from '../lib/areaStats.js';
 import { buildArticleSchema } from '../lib/structuredData.js';
 import { SITE_URL } from '../lib/siteConfig.js';
 
-const desktopBg = await getImage({ src: bgImage, format: 'webp', width: 1920, quality: 82 });
-const mobileBg = await getImage({ src: bgImage, format: 'webp', width: 768, quality: 80 });
+const desktopBg = { src: '/assets/images/background.jpg' };
+const mobileBg = { src: '/assets/images/background.jpg' };
 
 const db = getDb();
 const cities = await getCityIndex(db);
 const stats = await getAreaStats(db, { rowLimit: 200 });
-
-const [flucRows] = await db.query(`SELECT AVG(FluctuationRate) AS f FROM appraisals WHERE FluctuationRate IS NOT NULL`);
-const fluctuation = flucRows[0]?.f != null ? Number(flucRows[0].f) : null;
+const fluctuation = await getNationalFluctuation(db);
 
 // 都道府県（コード順）
 const prefMap = new Map();

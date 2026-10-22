@@ -7,13 +7,15 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/generateSitemap.js && astro build",
+    "build": "astro build && node scripts/prepareCloudflarePages.js",
     "sitemap": "node scripts/generateSitemap.js",
+    "snapshot": "node scripts/generateSsrSnapshot.js",
     "prepare": "git config core.hooksPath .githooks",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "^14.4.2",
     "astro": "^7.3.8",
     "mysql2": "^3.24.5"
   }

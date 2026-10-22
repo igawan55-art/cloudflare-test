@@ -1,30 +1,8 @@
 ---
 // src/pages/[pref]/[city]/[district]/index.astro
 import DistrictDetailPage from '../../../../components/DistrictDetailPage.astro';
-import { getDb } from '../../../../lib/db.js';
-
-export async function getStaticPaths() {
-    const db = getDb();
-    const [rows] = await db.query(`
-        SELECT DISTINCT MunicipalityCode, DistrictCode 
-        FROM transactions 
-        WHERE DistrictName IS NOT NULL AND DistrictName != '-' AND DistrictCode IS NOT NULL AND DistrictCode != '0'
-    `);
-    
-    return rows.map((row: any) => {
-        const muniCode = String(row.MunicipalityCode).padStart(5, '0');
-        const distCode = String(row.DistrictCode).padStart(9, '0');
-        return {
-            params: {
-                pref: 'pref' + muniCode.slice(0, 2),
-                city: muniCode,
-                district: distCode
-            }
-        };
-    });
-}
 
 const { pref: prefSlug, city: municipalityCode, district: districtCode } = Astro.params;
 ---
 
-<DistrictDetailPage prefSlug={prefSlug} municipalityCode={municipalityCode} districtCode={districtCode} type="index" />
+<DistrictDetailPage prefSlug={prefSlug!} municipalityCode={municipalityCode!} districtCode={districtCode!} type="index" />

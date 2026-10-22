@@ -19,6 +19,11 @@ const {
 // canonical が指定されていればそれを使用し、未指定の場合は現在のパスから自動生成（SITE_URL一括反映）
 const canonicalHref = buildCanonicalUrl(canonical || Astro.url.pathname);
 
+// Cloudflare CDN エッジキャッシュ設定（SSR時に1度生成したページをエッジに24時間キャッシュし、2回目以降を0.01秒の静的配信化）
+if (Astro.response?.headers && !Astro.response.headers.has('Cache-Control')) {
+    Astro.response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
+}
+
 // 全ページ共通の WebSite スキーマ
 const websiteSchema = buildWebSiteSchema();
 

@@ -6,7 +6,7 @@ import AreaDashboard from './AreaDashboard.astro';
 import AreaOverviewDashboard from './AreaOverviewDashboard.astro';
 import TabsNavBar from './TabsNavBar.astro';
 import { getDb } from '../lib/db.js';
-import { getAreaStats } from '../lib/areaStats.js';
+import { getAreaStats, getCityDistrictSummaries } from '../lib/areaStats.js';
 import { getLandPriceStats } from '../lib/landPriceStats.js';
 import { TYPE_CONFIG, normalizeType } from '../lib/typeConfig.js';
 import { SITE_URL } from '../lib/siteConfig.js';
@@ -28,15 +28,11 @@ const basePath = `/${prefSlug}/${municipalityCode}`;
 const db = getDb();
 const TSUBO = 3.30578;
 
-// 1. 自治体名・都道府県名の取得
-const [muniRows] = await db.query(`
-    SELECT Prefecture, Municipality FROM transactions WHERE MunicipalityCode = ? LIMIT 1
-`, [municipalityCode]);
-const pref = muniRows[0]?.Prefecture || '';
-const city = muniRows[0]?.Municipality || '';
+// 1. 自治体名・都道府県名 ＆ 町名別の相場一覧（市区町村単位でキャッシュ共有）
+const { pref, city, districts } = await getCityDistrictSummaries(db, municipalityCode);
 
 // 2. 取引実績の集計（種別ごとのKPI・四半期推移・直近事例）
-const stats = await getAreaStats(db, { municipalityCode, rowLimit: 300 });
+const stats = await getAreaStats(db, { municipalityCode, rowLimit: 120 });
 const land = stats.types.land;
 const mansion = stats.types.mansion;
 const house = stats.types.house;
@@ -55,26 +51,6 @@ const maxPoint = offData.maxPoint ? { Address: offData.maxPoint.address, Officia
 const minPoint = offData.minPoint ? { Address: offData.minPoint.address, OfficialPrice: offData.minPoint.price } : null;
 const divergence = offData.divergence ?? null;
 
-// 5. 町名別の相場一覧（取引実績ベース）
-const [districtRows] = await db.query(`
-    SELECT DistrictCode, MAX(DistrictName) AS DistrictName, COUNT(*) AS cnt,
-        AVG(CASE WHEN Type = '中古マンション等' AND CAST(TradePrice AS UNSIGNED) > 0 THEN CAST(TradePrice AS UNSIGNED) END) AS mansion,
-        AVG(CASE WHEN Type = '宅地(土地と建物)' AND CAST(TradePrice AS UNSIGNED) > 0 THEN CAST(TradePrice AS UNSIGNED) END) AS house,
-        AVG(CASE WHEN Type = '宅地(土地)' AND CAST(TradePrice AS UNSIGNED) > 0 AND CAST(Area AS DECIMAL(12,2)) > 0
-                 THEN CAST(TradePrice AS UNSIGNED) / CAST(Area AS DECIMAL(12,2)) END) AS landSqm
-    FROM transactions
-    WHERE MunicipalityCode = ? AND DistrictName IS NOT NULL AND DistrictName != '-' AND DistrictCode IS NOT NULL AND DistrictCode != '0'
-    GROUP BY DistrictCode
-    ORDER BY cnt DESC
-`, [municipalityCode]);
-const districts = districtRows.map((r: any) => ({
-    code: String(r.DistrictCode).padStart(9, '0'),
-    name: r.DistrictName,
-    count: Number(r.cnt),
-    mansion: r.mansion ? Number(r.mansion) / 10000 : null,
-    house: r.house ? Number(r.house) / 10000 : null,
-    landTsubo: r.landSqm ? Number(r.landSqm) * TSUBO / 10000 : null,
-}));
 const topDistricts = districts.slice(0, 30);
 const allTowns = [...districts].sort((a: any, b: any) => a.code.localeCompare(b.code));
 

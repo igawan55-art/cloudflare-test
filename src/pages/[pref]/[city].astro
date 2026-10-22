@@ -1,28 +1,8 @@
 ---
 // src/pages/[pref]/[city].astro
 import CityDetailPage from '../../components/CityDetailPage.astro';
-import { getDb } from '../../lib/db.js';
-
-export async function getStaticPaths() {
-    const db = getDb();
-    const [rows] = await db.query(`
-        SELECT DISTINCT MunicipalityCode 
-        FROM transactions
-        WHERE MunicipalityCode IS NOT NULL AND MunicipalityCode != ''
-    `);
-    
-    return rows.map((row: any) => {
-        const muniCode = String(row.MunicipalityCode).padStart(5, '0');
-        return {
-            params: {
-                pref: 'pref' + muniCode.slice(0, 2),
-                city: muniCode
-            }
-        };
-    });
-}
 
 const { pref: prefSlug, city: municipalityCode } = Astro.params;
 ---
 
-<CityDetailPage prefSlug={prefSlug} municipalityCode={municipalityCode} type="index" />
+<CityDetailPage prefSlug={prefSlug!} municipalityCode={municipalityCode!} type="index" />

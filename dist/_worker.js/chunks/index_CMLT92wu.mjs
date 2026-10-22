@@ -1,0 +1,132 @@
+globalThis.process ??= {};
+globalThis.process.env ??= {};
+import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
+import { C as unescapeHTML, E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
+import { a as SITE_URL, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_Bson63KP.mjs";
+import { u as generatePrefSummaryHtml } from "./areaSummary_Bqfz40N3.mjs";
+import { l as getDb, o as getPrefecturePageData } from "./areaStats_vdvDVox9.mjs";
+//#region src/pages/[pref]/index.astro
+var _pref__exports = /* @__PURE__ */ __exportAll({
+	default: () => $$Index,
+	file: () => $$file,
+	url: () => $$url
+});
+createAstro("https://cloudflare-test.pages.dev");
+var $$Index = createComponent(async ($$result, $$props, $$slots) => {
+	const Astro = $$result.createAstro($$props, $$slots);
+	Astro.self = $$Index;
+	const PREFECTURE_NAMES = {
+		"01": "北海道",
+		"02": "青森県",
+		"03": "岩手県",
+		"04": "宮城県",
+		"05": "秋田県",
+		"06": "山形県",
+		"07": "福島県",
+		"08": "茨城県",
+		"09": "栃木県",
+		"10": "群馬県",
+		"11": "埼玉県",
+		"12": "千葉県",
+		"13": "東京都",
+		"14": "神奈川県",
+		"15": "新潟県",
+		"16": "富山県",
+		"17": "石川県",
+		"18": "福井県",
+		"19": "山梨県",
+		"20": "長野県",
+		"21": "岐阜県",
+		"22": "静岡県",
+		"23": "愛知県",
+		"24": "三重県",
+		"25": "滋賀県",
+		"26": "京都府",
+		"27": "大阪府",
+		"28": "兵庫県",
+		"29": "奈良県",
+		"30": "和歌山県",
+		"31": "鳥取県",
+		"32": "島根県",
+		"33": "岡山県",
+		"34": "広島県",
+		"35": "山口県",
+		"36": "徳島県",
+		"37": "香川県",
+		"38": "愛媛県",
+		"39": "高知県",
+		"40": "福岡県",
+		"41": "佐賀県",
+		"42": "長崎県",
+		"43": "熊本県",
+		"44": "大分県",
+		"45": "宮崎県",
+		"46": "鹿児島県",
+		"47": "沖縄県"
+	};
+	const { pref: prefSlug } = Astro.params;
+	const prefCode = (prefSlug || "").replace("pref", "");
+	const prefName = PREFECTURE_NAMES[prefCode] || `${prefSlug}エリア`;
+	const db = getDb();
+	const TSUBO = 3.30578;
+	const { cities, apprSummary, maxPoint, minPoint, topAppraisals } = await getPrefecturePageData(db, prefCode);
+	const totalTxCount = cities.reduce((sum, c) => sum + Number(c.txCount || 0), 0);
+	const overallAppr = apprSummary.find((r) => r.Division === null) || null;
+	const resAppr = apprSummary.find((r) => r.Division === "住宅地") || null;
+	const comAppr = apprSummary.find((r) => r.Division === "商業地") || null;
+	const resOfficialPrice = resAppr?.avgOfficial ? Math.round(Number(resAppr.avgOfficial)) : null;
+	const resOfficialTsubo = resOfficialPrice ? Math.round(resOfficialPrice * TSUBO) : null;
+	const resRosenkaTsubo = resOfficialTsubo ? Math.round(resOfficialTsubo * .8) : null;
+	const resFluctuation = resAppr?.avgFluctuation != null ? Number(resAppr.avgFluctuation) : null;
+	const pageTitle = `${prefName}の不動産相場・地価公示・路線価｜チカシル`;
+	const pageDesc = `${prefName}の不動産取引価格相場（中古マンション、一戸建て、土地）と2026年最新の地価公示・路線価の相場情報。${prefName}内の各市区町村別の取引実績や価格動向を一覧で比較できます。`;
+	const canonicalUrl = `${SITE_URL}/${prefSlug}/`;
+	const breadcrumbs = buildBreadcrumbSchema([{
+		name: "トップ",
+		url: "/"
+	}, {
+		name: prefName,
+		url: `/${prefSlug}/`
+	}]);
+	const articleSchema = buildArticleSchema({
+		title: pageTitle,
+		headline: `${prefName}の不動産相場と地価動向（2026年最新）`,
+		description: pageDesc,
+		url: canonicalUrl
+	});
+	const prefSummaryHtml = generatePrefSummaryHtml({
+		prefName,
+		year: 2026,
+		overallAppr,
+		resAppr,
+		maxPoint,
+		totalTxCount,
+		cityCount: cities.length
+	});
+	return renderTemplate`${renderComponent($$result, "Layout", $$Layout, {
+		"title": pageTitle,
+		"description": pageDesc,
+		"canonical": canonicalUrl,
+		"jsonLd": [breadcrumbs, articleSchema]
+	}, { "default": ($$result) => renderTemplate`${maybeRenderHead($$result)}<section class="page-head"><div class="container"><nav class="breadcrumb" aria-label="パンくずリスト"><a href="/">トップ</a><span class="sep">/</span><span aria-current="page">${prefName}</span></nav><span class="eyebrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>都道府県別 不動産・地価サマリー</span><h1 class="page-title" style="margin-top:10px;">${prefName}の不動産相場と地価動向</h1><p style="color:var(--muted); font-size:0.95rem; margin-top:8px; max-width:800px; line-height:1.6;">国土交通省の公的データ（不動産取引価格情報・地価公示・都道府県地価調査）に基づき、${prefName}内の市区町村別相場、住宅地平均価格、路線価目安、価格変動率をまとめています。</p></div></section><div class="container" style="padding-top: 28px; padding-bottom: 64px;">${prefSummaryHtml && renderTemplate`<p class="area-summary-text" style="margin-top: 0; margin-bottom: 24px;">${unescapeHTML(prefSummaryHtml)}</p>`}<!-- 主要KPIカード --><div class="kpi-grid" style="margin-bottom: 32px;"><div class="card kpi"><div class="kpi-label">住宅地 平均公示地価 (2026年)</div><div class="kpi-val">${resOfficialTsubo ? renderTemplate`${renderComponent($$result, "Fragment", Fragment, {}, { "default": ($$result) => renderTemplate`<span>${Math.round(resOfficialTsubo / 1e4).toLocaleString()}</span><span class="kpi-unit">万円/坪</span>` })}` : renderTemplate`<span style="font-size:1.4rem; color:var(--muted);">データ準備中</span>`}</div><div class="kpi-sub">${resOfficialPrice ? `${(resOfficialPrice / 1e4).toFixed(1)} 万円/㎡` : "-"}${resFluctuation != null && renderTemplate`<span${addAttribute(`trend-tag ${resFluctuation >= 0 ? "up" : "down"}`, "class")} style="margin-left:8px;">前年比 ${resFluctuation >= 0 ? `+${resFluctuation.toFixed(1)}` : resFluctuation.toFixed(1)}%</span>`}</div></div><div class="card kpi"><div class="kpi-label">住宅地 推定路線価 目安</div><div class="kpi-val">${resRosenkaTsubo ? renderTemplate`${renderComponent($$result, "Fragment", Fragment, {}, { "default": ($$result) => renderTemplate`<span>${Math.round(resRosenkaTsubo / 1e4).toLocaleString()}</span><span class="kpi-unit">万円/坪</span>` })}` : renderTemplate`<span style="font-size:1.4rem; color:var(--muted);">-</span>`}</div><div class="kpi-sub">公示地価の約80%水準（相続税路線価換算）</div></div><div class="card kpi"><div class="kpi-label">調査地点数 (公的標準地・基準地)</div><div class="kpi-val"><span>${overallAppr ? Number(overallAppr.cnt).toLocaleString() : 0}</span><span class="kpi-unit">地点</span></div><div class="kpi-sub">${resAppr ? `住宅地: ${Number(resAppr.cnt).toLocaleString()} 地点` : ""}${comAppr ? ` / 商業地: ${Number(comAppr.cnt).toLocaleString()} 地点` : ""}</div></div><div class="card kpi"><div class="kpi-label">掲載市区町村 / 取引データ</div><div class="kpi-val"><span>${cities.length}</span><span class="kpi-unit">市区町村</span></div><div class="kpi-sub">総取引事例数: ${totalTxCount.toLocaleString()} 件</div></div></div>${(maxPoint || minPoint) && renderTemplate`<div class="grid-2" style="margin-bottom: 36px; gap: 16px;">${maxPoint && renderTemplate`<div class="card" style="padding: 18px 22px; border-left: 4px solid var(--primary);"><div style="font-size:0.8rem; color:var(--muted); font-weight:600; text-transform:uppercase;">県内 最高地点 (2026年)</div><div style="font-size:1.1rem; font-weight:700; color:var(--text); margin-top:4px;">${maxPoint.Address}</div><div style="margin-top:6px; display:flex; align-items:baseline; gap:12px;"><span style="font-size:1.4rem; font-weight:800; color:var(--primary);">${Math.round(Number(maxPoint.OfficialPrice) * TSUBO / 1e4).toLocaleString()}<span style="font-size:0.85rem; font-weight:500;"> 万円/坪</span></span><span style="font-size:0.85rem; color:var(--muted);">(${(Number(maxPoint.OfficialPrice) / 1e4).toFixed(1)} 万円/㎡)</span>${maxPoint.FluctuationRate != null && renderTemplate`<span${addAttribute(`trend-tag ${Number(maxPoint.FluctuationRate) >= 0 ? "up" : "down"}`, "class")}>前年比 ${Number(maxPoint.FluctuationRate) >= 0 ? `+${maxPoint.FluctuationRate}` : maxPoint.FluctuationRate}%</span>`}</div></div>`}${minPoint && renderTemplate`<div class="card" style="padding: 18px 22px; border-left: 4px solid var(--accent, #64748b);"><div style="font-size:0.8rem; color:var(--muted); font-weight:600; text-transform:uppercase;">県内 最低地点 (2026年)</div><div style="font-size:1.1rem; font-weight:700; color:var(--text); margin-top:4px;">${minPoint.Address}</div><div style="margin-top:6px; display:flex; align-items:baseline; gap:12px;"><span style="font-size:1.4rem; font-weight:800; color:var(--text);">${Math.round(Number(minPoint.OfficialPrice) * TSUBO / 1e4).toLocaleString()}<span style="font-size:0.85rem; font-weight:500;"> 万円/坪</span></span><span style="font-size:0.85rem; color:var(--muted);">(${(Number(minPoint.OfficialPrice) / 1e4).toFixed(2)} 万円/㎡)</span>${minPoint.FluctuationRate != null && renderTemplate`<span${addAttribute(`trend-tag ${Number(minPoint.FluctuationRate) >= 0 ? "up" : "down"}`, "class")}>前年比 ${Number(minPoint.FluctuationRate) >= 0 ? `+${minPoint.FluctuationRate}` : minPoint.FluctuationRate}%</span>`}</div></div>`}</div>`}<!-- 市区町村別 相場一覧テーブル --><section class="section" id="cities"><div class="section-head"><div><h2 class="section-title">${prefName}の市区町村別 不動産相場一覧</h2><p class="section-sub">市区町村名を選択すると、詳細な相場分析・町名別データ・路線価情報をご覧いただけます。</p></div></div><div class="card" style="padding:0; overflow:hidden;"><div class="table-wrap"><table class="data-table"><thead><tr><th>市区町村名</th><th style="text-align:right;">中古マンション 平均</th><th style="text-align:right;">一戸建て 平均</th><th style="text-align:right;">土地 坪単価 (推定)</th><th style="text-align:right;">取引件数</th><th style="text-align:center;">詳細リンク</th></tr></thead><tbody>${cities.map((c) => {
+		const muniCode = String(c.MunicipalityCode).padStart(5, "0");
+		const mansion = c.mansionAvg ? `${Math.round(Number(c.mansionAvg) / 1e4).toLocaleString()} 万円` : "-";
+		const house = c.houseAvg ? `${Math.round(Number(c.houseAvg) / 1e4).toLocaleString()} 万円` : "-";
+		const landTsubo = c.landSqmAvg ? `${Math.round(Number(c.landSqmAvg) * TSUBO / 1e4).toLocaleString()} 万円` : "-";
+		return renderTemplate`<tr><td><a${addAttribute(`/${prefSlug}/${muniCode}`, "href")} style="font-weight:700; color:var(--primary); font-size:1.02rem;">${c.name}</a></td><td style="text-align:right; font-weight:600;">${mansion}</td><td style="text-align:right; font-weight:600;">${house}</td><td style="text-align:right; font-weight:600; color:var(--primary);">${landTsubo}</td><td style="text-align:right; color:var(--muted);">${Number(c.txCount).toLocaleString()} 件</td><td style="text-align:center;"><div style="display:inline-flex; gap:6px; flex-wrap:wrap; justify-content:center;"><a${addAttribute(`/${prefSlug}/${muniCode}`, "href")} class="btn-sm" style="font-size:0.75rem; padding:3px 8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; text-decoration:none; color:var(--text);">総合</a><a${addAttribute(`/${prefSlug}/${muniCode}/rosenka`, "href")} class="btn-sm" style="font-size:0.75rem; padding:3px 8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; text-decoration:none; color:var(--text);">路線価</a></div></td></tr>`;
+	})}</tbody></table></div></div></section><!-- 地価公示・基準地価 ランキング上位地点 -->${topAppraisals.length > 0 && renderTemplate`<section class="section" style="margin-top:48px;"><div class="section-head"><div><h2 class="section-title">${prefName} 高額標準地・基準地ランキング (2026年)</h2><p class="section-sub">県内の公的鑑定評価地（地価公示・都道府県地価調査）における価格上位地点の一覧です。</p></div></div><div class="card" style="padding:0; overflow:hidden;"><div class="table-wrap"><table class="data-table"><thead><tr><th style="width:60px; text-align:center;">順位</th><th>所在地</th><th style="width:100px;">用途区分</th><th style="text-align:right;">公示価格 / ㎡</th><th style="text-align:right;">坪単価換算</th><th style="text-align:right; width:100px;">対前年変動率</th></tr></thead><tbody>${topAppraisals.map((p, idx) => {
+		const price = Number(p.OfficialPrice);
+		const tsubo = Math.round(price * TSUBO);
+		const fluc = p.FluctuationRate != null ? Number(p.FluctuationRate) : null;
+		return renderTemplate`<tr><td style="text-align:center; font-weight:700; color:var(--muted);">${idx + 1}</td><td style="font-weight:600; color:var(--text);">${p.Address}</td><td><span style="font-size:0.8rem; padding:2px 8px; border-radius:4px; background:var(--bg); border:1px solid var(--border);">${p.Division || "住宅地"}</span></td><td style="text-align:right; font-weight:700;">${price.toLocaleString()} 円</td><td style="text-align:right; font-weight:700; color:var(--primary);">${tsubo.toLocaleString()} 円</td><td style="text-align:right;">${fluc != null ? renderTemplate`<span${addAttribute(`trend-tag ${fluc >= 0 ? "up" : "down"}`, "class")}>${fluc >= 0 ? `+${fluc.toFixed(1)}` : fluc.toFixed(1)}%</span>` : "-"}</td></tr>`;
+	})}</tbody></table></div></div></section>`}</div>` })}`;
+}, "D:/xampp/htdocs/root/realestate-astro/src/pages/[pref]/index.astro", void 0);
+var $$file = "D:/xampp/htdocs/root/realestate-astro/src/pages/[pref]/index.astro";
+var $$url = "/[pref]";
+//#endregion
+//#region \0virtual:astro:page:src/pages/[pref]/index@_@astro
+var page = () => _pref__exports;
+//#endregion
+export { page };
+
+//# sourceMappingURL=index_CMLT92wu.mjs.map

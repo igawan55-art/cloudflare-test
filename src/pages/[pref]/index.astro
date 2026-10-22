@@ -3,30 +3,10 @@
 // 都道府県別 不動産相場・地価サマリーページ（例: /pref01/, /pref13/ など）
 import Layout from '../../layouts/Layout.astro';
 import { getDb } from '../../lib/db.js';
+import { getPrefecturePageData } from '../../lib/areaStats.js';
 import { SITE_URL } from '../../lib/siteConfig.js';
 import { buildBreadcrumbSchema, buildArticleSchema } from '../../lib/structuredData.js';
 import { generatePrefSummaryHtml } from '../../lib/areaSummary.js';
-
-export async function getStaticPaths() {
-    const PREFECTURE_NAMES: Record<string, string> = {
-        '01': '北海道', '02': '青森県', '03': '岩手県', '04': '宮城県', '05': '秋田県',
-        '06': '山形県', '07': '福島県', '08': '茨城県', '09': '栃木県', '10': '群馬県',
-        '11': '埼玉県', '12': '千葉県', '13': '東京都', '14': '神奈川県', '15': '新潟県',
-        '16': '富山県', '17': '石川県', '18': '福井県', '19': '山梨県', '20': '長野県',
-        '21': '岐阜県', '22': '静岡県', '23': '愛知県', '24': '三重県', '25': '滋賀県',
-        '26': '京都府', '27': '大阪府', '28': '兵庫県', '29': '奈良県', '30': '和歌山県',
-        '31': '鳥取県', '32': '島根県', '33': '岡山県', '34': '広島県', '35': '山口県',
-        '36': '徳島県', '37': '香川県', '38': '愛媛県', '39': '高知県', '40': '福岡県',
-        '41': '佐賀県', '42': '長崎県', '43': '熊本県', '44': '大分県', '45': '宮崎県',
-        '46': '鹿児島県', '47': '沖縄県'
-    };
-
-    return Object.keys(PREFECTURE_NAMES).map((id) => ({
-        params: {
-            pref: `pref${id}`
-        }
-    }));
-}
 
 const PREFECTURE_NAMES: Record<string, string> = {
     '01': '北海道', '02': '青森県', '03': '岩手県', '04': '宮城県', '05': '秋田県',
@@ -48,34 +28,8 @@ const prefName = PREFECTURE_NAMES[prefCode] || `${prefSlug}エリア`;
 const db = getDb();
 const TSUBO = 3.30578;
 
-// 1. 都道府県内の市区町村一覧と取引相場サマリー
-const [cities] = await db.query(`
-    SELECT 
-        MunicipalityCode,
-        MAX(Municipality) AS name,
-        COUNT(*) AS txCount,
-        AVG(CASE WHEN Type = '中古マンション等' AND CAST(TradePrice AS UNSIGNED) > 0 THEN CAST(TradePrice AS UNSIGNED) END) AS mansionAvg,
-        AVG(CASE WHEN Type = '宅地(土地と建物)' AND CAST(TradePrice AS UNSIGNED) > 0 THEN CAST(TradePrice AS UNSIGNED) END) AS houseAvg,
-        AVG(CASE WHEN Type = '宅地(土地)' AND CAST(TradePrice AS UNSIGNED) > 0 AND CAST(Area AS DECIMAL(12,2)) > 0
-                 THEN CAST(TradePrice AS UNSIGNED) / CAST(Area AS DECIMAL(12,2)) END) AS landSqmAvg
-    FROM transactions
-    WHERE SUBSTRING(MunicipalityCode, 1, 2) = ?
-    GROUP BY MunicipalityCode
-    ORDER BY txCount DESC
-`, [prefCode]);
-
+const { cities, apprSummary, maxPoint, minPoint, topAppraisals } = await getPrefecturePageData(db, prefCode);
 const totalTxCount = cities.reduce((sum: number, c: any) => sum + Number(c.txCount || 0), 0);
-
-// 2. 最新（2026年）の公的地価（地価公示・地価調査）サマリー
-const [apprSummary] = await db.query(`
-    SELECT Division,
-           COUNT(*) AS cnt,
-           AVG(OfficialPrice) AS avgOfficial,
-           AVG(FluctuationRate) AS avgFluctuation
-    FROM appraisals
-    WHERE Year = '2026' AND SUBSTRING(MunicipalityCode, 1, 2) = ?
-    GROUP BY Division WITH ROLLUP
-`, [prefCode]);
 
 const overallAppr = apprSummary.find((r: any) => r.Division === null) || null;
 const resAppr = apprSummary.find((r: any) => r.Division === '住宅地') || null;
@@ -85,30 +39,6 @@ const resOfficialPrice = resAppr?.avgOfficial ? Math.round(Number(resAppr.avgOff
 const resOfficialTsubo = resOfficialPrice ? Math.round(resOfficialPrice * TSUBO) : null;
 const resRosenkaTsubo = resOfficialTsubo ? Math.round(resOfficialTsubo * 0.8) : null;
 const resFluctuation = resAppr?.avgFluctuation != null ? Number(resAppr.avgFluctuation) : null;
-
-// 最高地点・最低地点
-const [maxPointRows] = await db.query(`
-    SELECT Address, OfficialPrice, Division, FluctuationRate
-    FROM appraisals
-    WHERE Year = '2026' AND SUBSTRING(MunicipalityCode, 1, 2) = ?
-    ORDER BY OfficialPrice DESC LIMIT 1
-`, [prefCode]);
-const [minPointRows] = await db.query(`
-    SELECT Address, OfficialPrice, Division, FluctuationRate
-    FROM appraisals
-    WHERE Year = '2026' AND SUBSTRING(MunicipalityCode, 1, 2) = ? AND OfficialPrice > 0
-    ORDER BY OfficialPrice ASC LIMIT 1
-`, [prefCode]);
-const maxPoint = maxPointRows[0] || null;
-const minPoint = minPointRows[0] || null;
-
-// 3. 都道府県内 地価ランキング上位15地点
-const [topAppraisals] = await db.query(`
-    SELECT Address, OfficialPrice, FluctuationRate, Division
-    FROM appraisals
-    WHERE Year = '2026' AND SUBSTRING(MunicipalityCode, 1, 2) = ?
-    ORDER BY OfficialPrice DESC LIMIT 15
-`, [prefCode]);
 
 const pageTitle = `${prefName}の不動産相場・地価公示・路線価｜チカシル`;
 const pageDesc = `${prefName}の不動産取引価格相場（中古マンション、一戸建て、土地）と2026年最新の地価公示・路線価の相場情報。${prefName}内の各市区町村別の取引実績や価格動向を一覧で比較できます。`;

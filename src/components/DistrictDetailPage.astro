@@ -6,7 +6,7 @@ import AreaDashboard from './AreaDashboard.astro';
 import AreaOverviewDashboard from './AreaOverviewDashboard.astro';
 import TabsNavBar from './TabsNavBar.astro';
 import { getDb } from '../lib/db.js';
-import { getAreaStats } from '../lib/areaStats.js';
+import { getAreaStats, getCityDistrictSummaries, getQualitativeReport } from '../lib/areaStats.js';
 import { getLandPriceStats } from '../lib/landPriceStats.js';
 import { TYPE_CONFIG, normalizeType } from '../lib/typeConfig.js';
 import { SITE_URL } from '../lib/siteConfig.js';
@@ -29,20 +29,21 @@ const basePath = `/${prefSlug}/${municipalityCode}/${districtCode}`;
 const db = getDb();
 const TSUBO = 3.30578;
 
-const [nameRows] = await db.query(`
-    SELECT Prefecture, Municipality, DistrictName FROM transactions
-    WHERE MunicipalityCode = ? AND DistrictCode = ? LIMIT 1
-`, [municipalityCode, districtCode]);
-const pref = nameRows[0]?.Prefecture || '';
-const city = nameRows[0]?.Municipality || '';
-const district = nameRows[0]?.DistrictName || '';
+// 取引実績（種別ごとのKPI・四半期推移・直近事例・地名メタ情報）と市区町村内の町名一覧を並列取得
+const [stats, cityDistInfo] = await Promise.all([
+    getAreaStats(db, { municipalityCode, districtCode, rowLimit: 80 }),
+    getCityDistrictSummaries(db, municipalityCode),
+]);
 
-// 取引実績（種別ごとのKPI・四半期推移・直近事例）
-const stats = await getAreaStats(db, { municipalityCode, districtCode, rowLimit: 300 });
+const pref = stats.meta?.pref || cityDistInfo.pref || '';
+const city = stats.meta?.city || cityDistInfo.city || '';
+const matchedDist = cityDistInfo.districts.find((d: any) => d.code === districtCode);
+const district = stats.meta?.district || matchedDist?.name || '';
+
 const land = stats.types.land;
 const totalTx = Object.values(stats.types).reduce((s: number, t: any) => s + t.count, 0);
 
-// 2026年最新の公的地価データ（地区 → 市区町村の順でフォールバック）
+// 2026年最新の公的地価データ（地区 → 市区町村の順でフォールバック、市区町村単位キャッシュ済み）
 const landPrices = await getLandPriceStats(db, {
     municipalityCode,
     districtName: district,
@@ -54,21 +55,13 @@ const officialAvg = offData.avgPrice ? Number(offData.avgPrice) : null;
 const fluctuation = offData.avgFluctuation != null ? Number(offData.avgFluctuation) : null;
 const roadEstimate = landPrices.rosenka?.avgPrice ? Number(landPrices.rosenka.avgPrice) : null;
 const divergence = offData.divergence ?? null;
+const capRate = landPrices.avgCapRate ? Number(landPrices.avgCapRate) : null;
 
-// 期待利回り（鑑定評価書データがある場合）
-const [capRows] = await db.query(
-    `SELECT AVG(CASE WHEN CapRate > 0 THEN CapRate END) AS avgCapRate FROM appraisals WHERE MunicipalityCode = ?`,
-    [municipalityCode]
-);
-const capRate = capRows[0]?.avgCapRate ? Number(capRows[0].avgCapRate) : null;
-
-// 同じ市区町村内の近隣町名
-const [siblingRows] = await db.query(`
-    SELECT DistrictCode, MAX(DistrictName) AS DistrictName, COUNT(*) AS cnt FROM transactions
-    WHERE MunicipalityCode = ? AND DistrictCode != ? AND DistrictName IS NOT NULL AND DistrictName != '-' AND DistrictCode != '0'
-    GROUP BY DistrictCode ORDER BY cnt DESC LIMIT 40
-`, [municipalityCode, districtCode]);
-const siblings = siblingRows.map((r: any) => ({ code: String(r.DistrictCode).padStart(9, '0'), name: r.DistrictName }));
+// 同じ市区町村内の近隣町名（キャッシュ済み一覧からフィルタ）
+const siblings = cityDistInfo.districts
+    .filter((d: any) => d.code !== districtCode)
+    .slice(0, 40)
+    .map((d: any) => ({ code: d.code, name: d.name }));
 
 const man1 = (yen: any) => (yen == null ? '—' : (yen / 10000).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 const pct = (v: any) => (v == null ? '—' : `${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%`);
@@ -80,16 +73,7 @@ const isLandPriceTab = currentType === 'rosenka' || currentType === 'official' |
 let qualitativeReport: { text: string; charCount: number } | null = null;
 let faqs: Array<{ question: string; answer: string }> = [];
 if (isOverview) {
-    const [descRows] = await db.query(
-        `SELECT Description, CharCount FROM district_descriptions WHERE Prefecture = ? AND Municipality = ? AND DistrictName = ? LIMIT 1`,
-        [pref, city, district]
-    );
-    if (descRows[0]?.Description) {
-        qualitativeReport = {
-            text: descRows[0].Description,
-            charCount: Number(descRows[0].CharCount || descRows[0].Description.length),
-        };
-    }
+    qualitativeReport = await getQualitativeReport(db, pref, city, district);
     faqs = generateAreaFaqs({ pref, city, district, stats, landPrices, fluctuation });
 }
 
