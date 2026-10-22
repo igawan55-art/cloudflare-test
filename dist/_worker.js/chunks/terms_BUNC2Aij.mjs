@@ -1,8 +1,9 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
-import { E as createComponent, a as renderComponent, f as renderTemplate, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
-import { a as SITE_URL, t as $$Layout } from "./Layout_Bson63KP.mjs";
+import { a as renderComponent, f as renderTemplate, p as maybeRenderHead } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
+import { a as SITE_URL, t as $$Layout } from "./Layout_mGZnc1nj.mjs";
 //#region src/pages/terms.astro
 var terms_exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Terms,
@@ -23,4 +24,4 @@ var page = () => terms_exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=terms_YHE5u4MT.mjs.map
+//# sourceMappingURL=terms_BUNC2Aij.mjs.map

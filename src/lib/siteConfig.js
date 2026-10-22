@@ -3,7 +3,7 @@
 // ドメインを変更する場合は、下記の DEFAULT_SITE_URL（または環境変数 SITE_URL）を変更するだけで
 // 全ページの canonical URL・JSON-LD構造化データ・Astro設定に一括反映されます。
 
-const DEFAULT_SITE_URL = 'https://cloudflare-test.pages.dev';
+const DEFAULT_SITE_URL = 'https://chikashiru.jp';
 
 export const SITE_URL = (
     (typeof process !== 'undefined' && process.env?.SITE_URL) ||

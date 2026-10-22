@@ -1,8 +1,9 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
-import { C as unescapeHTML, E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
-import { a as SITE_URL, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_Bson63KP.mjs";
+import { C as unescapeHTML, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
+import { a as SITE_URL, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_mGZnc1nj.mjs";
 import { u as generatePrefSummaryHtml } from "./areaSummary_Bqfz40N3.mjs";
 import { l as getDb, o as getPrefecturePageData } from "./areaStats_CE41jAJX.mjs";
 //#region src/pages/[pref]/index.astro
@@ -11,7 +12,7 @@ var _pref__exports = /* @__PURE__ */ __exportAll({
 	file: () => $$file,
 	url: () => $$url
 });
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$Index = createComponent(async ($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$Index;
@@ -129,4 +130,4 @@ var page = () => _pref__exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=index_BQeHGiqN.mjs.map
+//# sourceMappingURL=index_DZzhtngN.mjs.map

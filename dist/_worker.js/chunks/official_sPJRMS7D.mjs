@@ -1,15 +1,16 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
-import { E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate } from "./compiler_BtRSHKO3.mjs";
-import { t as $$CityDetailPage } from "./CityDetailPage_DSE0bbAp.mjs";
+import { T as createAstro, a as renderComponent, f as renderTemplate } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
+import { t as $$CityDetailPage } from "./CityDetailPage_DPW3Ldlt.mjs";
 //#region src/pages/[pref]/[city]/official.astro
 var official_exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Official,
 	file: () => $$file,
 	url: () => $$url
 });
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$Official = createComponent(($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$Official;
@@ -28,4 +29,4 @@ var page = () => official_exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=official_Dpn4oHDB.mjs.map
+//# sourceMappingURL=official_sPJRMS7D.mjs.map

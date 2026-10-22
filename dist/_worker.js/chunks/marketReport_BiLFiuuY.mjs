@@ -1,10 +1,11 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
-import { C as unescapeHTML, E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
+import { C as unescapeHTML, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
 import { a as formatManInt, i as formatMan1, l as generateAreaSummaryHtml, n as formatEraYear, o as formatPct, r as formatJpYen, s as formatShortAddress, t as describeFluctuationTrend } from "./areaSummary_Bqfz40N3.mjs";
 import { c as ssrCoreData_default } from "./areaStats_CE41jAJX.mjs";
 //#region src/components/AreaOverviewDashboard.astro
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$AreaOverviewDashboard = createComponent(($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$AreaOverviewDashboard;
@@ -163,7 +164,7 @@ var normalizeType = (t) => {
 };
 //#endregion
 //#region src/components/TabsNavBar.astro
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$TabsNavBar = createComponent(($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$TabsNavBar;
@@ -801,4 +802,4 @@ function generateMarketReport({ pref = "", city = "", district = "", currentType
 //#endregion
 export { VALID_TYPES as a, TYPE_CONFIG as i, getLandPriceStats as n, normalizeType as o, $$TabsNavBar as r, $$AreaOverviewDashboard as s, generateMarketReport as t };
 
-//# sourceMappingURL=marketReport_2x12qc74.mjs.map
+//# sourceMappingURL=marketReport_BiLFiuuY.mjs.map

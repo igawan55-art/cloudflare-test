@@ -1,8 +1,9 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
-import { E as createComponent, a as renderComponent, f as renderTemplate, g as defineScriptVars, h as addAttribute, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
-import { a as SITE_URL, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_Bson63KP.mjs";
+import { a as renderComponent, f as renderTemplate, g as defineScriptVars, h as addAttribute, p as maybeRenderHead } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
+import { a as SITE_URL, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_mGZnc1nj.mjs";
 import { l as getDb, r as getCityIndex } from "./areaStats_CE41jAJX.mjs";
 //#region src/pages/areas/index.astro
 var areas_exports = /* @__PURE__ */ __exportAll({
@@ -398,4 +399,4 @@ var page = () => areas_exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=index_DXz59DlO.mjs.map
+//# sourceMappingURL=index_BNsb2oP-.mjs.map

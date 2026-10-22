@@ -1,16 +1,17 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
-import { E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate } from "./compiler_BtRSHKO3.mjs";
-import { a as VALID_TYPES } from "./marketReport_2x12qc74.mjs";
-import { t as $$DistrictDetailPage } from "./DistrictDetailPage_3p-Gt1tJ.mjs";
+import { T as createAstro, a as renderComponent, f as renderTemplate } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
+import { a as VALID_TYPES } from "./marketReport_BiLFiuuY.mjs";
+import { t as $$DistrictDetailPage } from "./DistrictDetailPage_CMWpC2U9.mjs";
 //#region src/pages/[pref]/[city]/[district]/[type].astro
 var _type__exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Type,
 	file: () => $$file,
 	url: () => $$url
 });
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$Type = createComponent(($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$Type;
@@ -31,4 +32,4 @@ var page = () => _type__exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=_type__C14-9Ob5.mjs.map
+//# sourceMappingURL=_type__CHscpAbW.mjs.map

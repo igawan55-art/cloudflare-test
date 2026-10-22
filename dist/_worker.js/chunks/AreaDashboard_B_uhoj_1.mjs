@@ -1,9 +1,10 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
-import { C as unescapeHTML, E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
+import { C as unescapeHTML, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
 import { l as generateAreaSummaryHtml } from "./areaSummary_Bqfz40N3.mjs";
 //#region src/components/TaxSimulator.astro
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$TaxSimulator = createComponent(($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$TaxSimulator;
@@ -365,7 +366,7 @@ var $$TaxSimulator = createComponent(($$result, $$props, $$slots) => {
 }, "D:/xampp/htdocs/root/realestate-astro/src/components/TaxSimulator.astro", void 0);
 //#endregion
 //#region src/components/AreaDashboard.astro
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$AreaDashboard = createComponent(($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$AreaDashboard;
@@ -486,4 +487,4 @@ var $$AreaDashboard = createComponent(($$result, $$props, $$slots) => {
 //#endregion
 export { $$AreaDashboard as t };
 
-//# sourceMappingURL=AreaDashboard_BleeDO4s.mjs.map
+//# sourceMappingURL=AreaDashboard_B_uhoj_1.mjs.map

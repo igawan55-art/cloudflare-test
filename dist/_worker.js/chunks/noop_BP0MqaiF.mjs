@@ -1,6 +1,6 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
-import { r as verifyOptions, s as isESMImportedImage, t as baseService } from "./service_4aNV5NDo.mjs";
+import { r as verifyOptions, s as isESMImportedImage, t as baseService } from "./service_OnuOa4JX.mjs";
 //#region node_modules/astro/dist/assets/services/noop.js
 var noopService = {
 	...baseService,
@@ -21,4 +21,4 @@ var noopService = {
 //#endregion
 export { noopService as default };
 
-//# sourceMappingURL=noop_CgqkaO-6.mjs.map
+//# sourceMappingURL=noop_BP0MqaiF.mjs.map

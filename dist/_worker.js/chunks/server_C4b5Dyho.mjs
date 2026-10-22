@@ -1,6 +1,6 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
-import { G as ResponseSentError, I as NoMatchingImport, L as NoMatchingRenderer, M as MissingMediaQueryDirective, N as NoClientOnlyHint, X as UnavailableAstroGlobal, c as EndpointDidNotReturnAResponse, t as AstroError, x as InvalidComponentArgs, z as OnlyResponseCanBeReturned } from "./errors_Dy9UXDwb.mjs";
+import { G as ResponseSentError, I as NoMatchingImport, L as NoMatchingRenderer, M as MissingMediaQueryDirective, N as NoClientOnlyHint, X as UnavailableAstroGlobal, c as EndpointDidNotReturnAResponse, t as AstroError, z as OnlyResponseCanBeReturned } from "./errors_Dy9UXDwb.mjs";
 //#region node_modules/@oslojs/encoding/dist/hex.js
 function encodeHexUpperCase(data) {
 	let result = "";
@@ -5341,38 +5341,6 @@ function isRoute3xx(route) {
 	return ROUTE3XX_RE.test(route);
 }
 //#endregion
-//#region node_modules/astro/dist/runtime/server/astro-component.js
-function validateArgs(args) {
-	if (args.length !== 3) return false;
-	if (!args[0] || typeof args[0] !== "object") return false;
-	return true;
-}
-function baseCreateComponent(cb, moduleId, propagation) {
-	const name = moduleId?.split("/").pop()?.replace(".astro", "") ?? "";
-	const fn = (...args) => {
-		if (!validateArgs(args)) throw new AstroError({
-			...InvalidComponentArgs,
-			message: InvalidComponentArgs.message(name)
-		});
-		return cb(...args);
-	};
-	Object.defineProperty(fn, "name", {
-		value: name,
-		writable: false
-	});
-	fn.isAstroComponentFactory = true;
-	fn.moduleId = moduleId;
-	fn.propagation = propagation;
-	return fn;
-}
-function createComponentWithOptions(opts) {
-	return baseCreateComponent(opts.factory, opts.moduleId, opts.propagation);
-}
-function createComponent(arg1, moduleId, propagation) {
-	if (typeof arg1 === "function") return baseCreateComponent(arg1, moduleId, propagation);
-	else return createComponentWithOptions(arg1);
-}
-//#endregion
 //#region node_modules/astro/dist/runtime/server/astro-global.js
 function createError(name) {
 	return new AstroError({
@@ -7881,6 +7849,6 @@ function defineStyleVars(defs) {
 	return markHTMLString(output);
 }
 //#endregion
-export { s as A, responseSentSymbol as B, unescapeHTML as C, isRoute3xx as D, createComponent as E, REROUTABLE_STATUS_CODES as F, decryptString as H, STATUS_CODE_PAGES as I, clientAddressSymbol as L, ASTRO_GENERATOR as M, DEFAULT_404_COMPONENT as N, isRoute404 as O, REDIRECT_STATUS_CODES as P, fetchStateSymbol as R, markHTMLString as S, createAstro as T, generateCspDigest as U, decodeKey as V, isRenderInstruction as _, renderComponent as a, shorthash as b, createSlotValueFromString as c, isRenderTemplateResult as d, renderTemplate as f, defineScriptVars as g, addAttribute as h, renderJSX as i, ASTRO_ERROR_HEADER as j, isRoute500 as k, renderSlot as l, renderHead as m, spreadAttributes as n, Fragment as o, maybeRenderHead as p, renderPage as r, chunkToString as s, defineStyleVars as t, renderSlotToString as u, normalizeCspResourceEntry as v, renderEndpoint as w, isAstroComponentFactory as x, pushDirective as y, originPathnameSymbol as z };
+export { ASTRO_ERROR_HEADER as A, decodeKey as B, unescapeHTML as C, isRoute404 as D, isRoute3xx as E, STATUS_CODE_PAGES as F, generateCspDigest as H, clientAddressSymbol as I, fetchStateSymbol as L, DEFAULT_404_COMPONENT as M, REDIRECT_STATUS_CODES as N, isRoute500 as O, REROUTABLE_STATUS_CODES as P, originPathnameSymbol as R, markHTMLString as S, createAstro as T, decryptString as V, isRenderInstruction as _, renderComponent as a, shorthash as b, createSlotValueFromString as c, isRenderTemplateResult as d, renderTemplate as f, defineScriptVars as g, addAttribute as h, renderJSX as i, ASTRO_GENERATOR as j, s as k, renderSlot as l, renderHead as m, spreadAttributes as n, Fragment as o, maybeRenderHead as p, renderPage as r, chunkToString as s, defineStyleVars as t, renderSlotToString as u, normalizeCspResourceEntry as v, renderEndpoint as w, isAstroComponentFactory as x, pushDirective as y, responseSentSymbol as z };
 
-//# sourceMappingURL=compiler_BtRSHKO3.mjs.map
+//# sourceMappingURL=server_C4b5Dyho.mjs.map

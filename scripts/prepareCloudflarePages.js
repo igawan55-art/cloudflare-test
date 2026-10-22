@@ -115,6 +115,12 @@ function main() {
     };
     fs.writeFileSync(path.join(distDir, '_routes.json'), JSON.stringify(routesJson, null, 2), 'utf8');
 
+    // 6. Astro が生成する .wrangler/deploy/config.json を削除 (Wrangler Pages deploy の誤検知を防止)
+    const wranglerDeployDir = path.resolve(__dirname, '../.wrangler/deploy');
+    if (fs.existsSync(wranglerDeployDir)) {
+        fs.rmSync(wranglerDeployDir, { recursive: true, force: true });
+    }
+
     console.log('[CF Pages Prep] Successfully created dist/_worker.js/index.js and dist/_routes.json!');
 }
 

@@ -1,7 +1,8 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
-import { C as unescapeHTML, E as createComponent, T as createAstro, f as renderTemplate, h as addAttribute, l as renderSlot, m as renderHead } from "./compiler_BtRSHKO3.mjs";
-var SITE_URL = (typeof process !== "undefined" && process.env?.SITE_URL || "https://cloudflare-test.pages.dev").replace(/\/+$/, "");
+import { C as unescapeHTML, T as createAstro, f as renderTemplate, h as addAttribute, l as renderSlot, m as renderHead } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
+var SITE_URL = (typeof process !== "undefined" && process.env?.SITE_URL || "https://chikashiru.jp").replace(/\/+$/, "");
 var SITE_NAME = "チカシル";
 /**
 * 相対パスまたはURLから正規化された canonical URL を生成するヘルパー
@@ -125,7 +126,7 @@ function buildFaqSchema(faqs = []) {
 }
 //#endregion
 //#region src/layouts/Layout.astro
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$Layout = createComponent(($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$Layout;
@@ -142,4 +143,4 @@ var $$Layout = createComponent(($$result, $$props, $$slots) => {
 //#endregion
 export { SITE_URL as a, buildFaqSchema as i, buildArticleSchema as n, buildBreadcrumbSchema as r, $$Layout as t };
 
-//# sourceMappingURL=Layout_Bson63KP.mjs.map
+//# sourceMappingURL=Layout_mGZnc1nj.mjs.map

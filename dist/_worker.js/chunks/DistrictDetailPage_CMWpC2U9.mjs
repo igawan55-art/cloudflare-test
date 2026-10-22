@@ -1,13 +1,14 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
-import { E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./compiler_BtRSHKO3.mjs";
-import { a as SITE_URL, i as buildFaqSchema, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_Bson63KP.mjs";
+import { T as createAstro, a as renderComponent, f as renderTemplate, h as addAttribute, o as Fragment, p as maybeRenderHead } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
+import { a as SITE_URL, i as buildFaqSchema, n as buildArticleSchema, r as buildBreadcrumbSchema, t as $$Layout } from "./Layout_mGZnc1nj.mjs";
 import { c as generateAreaFaqs } from "./areaSummary_Bqfz40N3.mjs";
-import { t as $$AreaDashboard } from "./AreaDashboard_BleeDO4s.mjs";
-import { i as TYPE_CONFIG, n as getLandPriceStats, o as normalizeType, r as $$TabsNavBar, s as $$AreaOverviewDashboard, t as generateMarketReport } from "./marketReport_2x12qc74.mjs";
+import { t as $$AreaDashboard } from "./AreaDashboard_B_uhoj_1.mjs";
+import { i as TYPE_CONFIG, n as getLandPriceStats, o as normalizeType, r as $$TabsNavBar, s as $$AreaOverviewDashboard, t as generateMarketReport } from "./marketReport_BiLFiuuY.mjs";
 import { l as getDb, n as getCityDistrictSummaries, s as getQualitativeReport, t as getAreaStats } from "./areaStats_CE41jAJX.mjs";
 //#region src/components/DistrictDetailPage.astro
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$DistrictDetailPage = createComponent(async ($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$DistrictDetailPage;
@@ -145,4 +146,4 @@ var $$DistrictDetailPage = createComponent(async ($$result, $$props, $$slots) =>
 //#endregion
 export { $$DistrictDetailPage as t };
 
-//# sourceMappingURL=DistrictDetailPage_3p-Gt1tJ.mjs.map
+//# sourceMappingURL=DistrictDetailPage_CMWpC2U9.mjs.map

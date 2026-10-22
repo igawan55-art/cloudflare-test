@@ -1,15 +1,16 @@
 globalThis.process ??= {};
 globalThis.process.env ??= {};
 import { t as __exportAll } from "./rolldown-runtime_D7vh-g_o.mjs";
-import { E as createComponent, T as createAstro, a as renderComponent, f as renderTemplate } from "./compiler_BtRSHKO3.mjs";
-import { t as $$CityDetailPage } from "./CityDetailPage_DSE0bbAp.mjs";
+import { T as createAstro, a as renderComponent, f as renderTemplate } from "./server_C4b5Dyho.mjs";
+import { t as createComponent } from "./compiler_B-lTv1lO.mjs";
+import { t as $$CityDetailPage } from "./CityDetailPage_DPW3Ldlt.mjs";
 //#region src/pages/[pref]/[city]/mansion.astro
 var mansion_exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Mansion,
 	file: () => $$file,
 	url: () => $$url
 });
-createAstro("https://cloudflare-test.pages.dev");
+createAstro("https://chikashiru.jp");
 var $$Mansion = createComponent(($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$Mansion;
@@ -28,4 +29,4 @@ var page = () => mansion_exports;
 //#endregion
 export { page };
 
-//# sourceMappingURL=mansion_DJy3cobX.mjs.map
+//# sourceMappingURL=mansion_zjABbz9q.mjs.map
