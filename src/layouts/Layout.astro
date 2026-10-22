@@ -1,11 +1,13 @@
 ---
 import { buildWebSiteSchema } from '../lib/structuredData.js';
-import { buildCanonicalUrl } from '../lib/siteConfig.js';
+import { buildCanonicalUrl, SITE_NAME, SITE_URL } from '../lib/siteConfig.js';
 
 export interface Props {
     title: string;
     description?: string;
     canonical?: string;
+    ogType?: string;
+    ogImage?: string;
     jsonLd?: Record<string, any> | Array<Record<string, any>>;
 }
 
@@ -13,6 +15,8 @@ const {
     title,
     description = "国土交通省「不動産情報ライブラリ」の公的データをもとに、全国のエリア別不動産取引価格・相場推移をわかりやすく可視化する相場検索サイトです。",
     canonical,
+    ogType = Astro.url.pathname === '/' ? 'website' : 'article',
+    ogImage = `${SITE_URL}/assets/images/background.jpg`,
     jsonLd = null
 } = Astro.props;
 
@@ -48,6 +52,23 @@ if (jsonLd) {
     <title>{title}</title>
     <link rel="canonical" href={canonicalHref} />
     <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+    <link rel="apple-touch-icon" href="/assets/images/logo.svg">
+
+    <!-- Open Graph / Facebook / LINE -->
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={canonicalHref} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content="ja_JP" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content={canonicalHref} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

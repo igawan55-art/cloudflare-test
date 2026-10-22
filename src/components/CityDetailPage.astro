@@ -61,14 +61,14 @@ const pct = (v: any) => (v == null ? '—' : `${v > 0 ? '+' : ''}${Number(v).toF
 const dcls = (v: any) => (v == null ? 'flat' : v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
 
 // SEO & タイトル（総合トップと各種別で完全分岐）
-const pageH1 = isOverview ? `${pref}${city}${conf.h1Suffix}` : `${city}${conf.h1Suffix}`;
+const pageH1 = isOverview ? `${pref}${city}${conf.h1Suffix}` : `${pref}${city}${conf.h1Suffix}`;
 const pageTitle = isOverview
     ? `${pref}${city}${conf.titleSuffix}｜チカシル`
-    : `${city}${conf.titleSuffix}｜不動産相場・価格情報`;
+    : `${pref}${city}${conf.titleSuffix}｜チカシル`;
 const metaDescription = conf.metaTemplate(city, pref);
 const canonicalUrl = isOverview
     ? `${SITE_URL}/${prefSlug}/${municipalityCode}/`
-    : `${SITE_URL}/${prefSlug}/${municipalityCode}/${currentType}`;
+    : `${SITE_URL}/${prefSlug}/${municipalityCode}/${currentType}/`;
 
 const breadcrumbItems = [
     { name: 'トップ', url: '/' },
@@ -76,7 +76,7 @@ const breadcrumbItems = [
     { name: city, url: `/${prefSlug}/${municipalityCode}/` },
 ];
 if (!isOverview) {
-    breadcrumbItems.push({ name: conf.label, url: `/${prefSlug}/${municipalityCode}/${currentType}` });
+    breadcrumbItems.push({ name: conf.label, url: `/${prefSlug}/${municipalityCode}/${currentType}/` });
 }
 const breadcrumbs = buildBreadcrumbSchema(breadcrumbItems);
 
