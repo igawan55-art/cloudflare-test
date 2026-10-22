@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build && node scripts/prepareCloudflarePages.js",
+    "deploy": "npx wrangler pages deploy dist --project-name=chikashiru",
     "sitemap": "node scripts/generateSitemap.js",
     "snapshot": "node scripts/generateSsrSnapshot.js",
     "d1:export": "node scripts/exportMysqlToD1.js",
